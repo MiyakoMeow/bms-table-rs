@@ -39,8 +39,8 @@ use url::Url;
 /// 
 /// 包含表格的基本信息和课程配置。
 /// 这个结构体对应BMS表格头JSON文件的主要结构。
-#[derive(Debug, Deserialize, Serialize)]
-pub struct BmsTableHeader {
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub(crate) struct BmsTableHeader {
     /// 表格名称，如 "Satellite"
     pub name: String,
     /// 表格符号，如 "sl"
@@ -55,7 +55,7 @@ pub struct BmsTableHeader {
 /// 课程信息
 /// 
 /// 定义了一个BMS课程的所有相关信息，包括约束条件、奖杯要求和MD5哈希列表。
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct CourseInfo {
     /// 课程名称，如 "Satellite Skill Analyzer 2nd sl0"
     pub name: String,
@@ -72,7 +72,7 @@ pub struct CourseInfo {
 /// 奖杯信息
 /// 
 /// 定义了获得特定奖杯需要达到的分数要求。
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Trophy {
     /// 奖杯名称，如 "silvermedal" 或 "goldmedal"
     pub name: String,
@@ -86,7 +86,7 @@ pub struct Trophy {
 /// 
 /// 表示一个BMS文件的分数数据，包含文件信息和下载链接。
 /// 所有字段都是可选的，因为不同的BMS表格可能有不同的字段。
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ScoreItem {
     /// 难度等级，如 "0"
     pub level: String,
@@ -110,7 +110,7 @@ pub struct ScoreItem {
 /// 
 /// 提供从BMS表格网站获取和解析数据的功能。
 /// 使用HTTP客户端来获取HTML和JSON数据，并提供完整的解析流程。
-pub struct BmsTableParser {
+pub(crate) struct BmsTableParser {
     /// HTTP客户端，用于发送请求
     client: Client,
 }
