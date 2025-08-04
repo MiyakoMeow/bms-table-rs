@@ -48,6 +48,7 @@ pub struct BmsTableHeader {
     /// 分数数据文件的相对URL，如 "score.json"
     pub data_url: String,
     /// 课程信息数组，每个元素是一个课程组的数组
+    #[serde(default)]
     pub course: Vec<Vec<CourseInfo>>,
 }
 
@@ -59,8 +60,10 @@ pub struct CourseInfo {
     /// 课程名称，如 "Satellite Skill Analyzer 2nd sl0"
     pub name: String,
     /// 约束条件列表，如 ["grade_mirror", "gauge_lr2", "ln"]
+    #[serde(default)]
     pub constraint: Vec<String>,
     /// 奖杯信息列表，定义不同等级的奖杯要求
+    #[serde(default)]
     pub trophy: Vec<Trophy>,
     /// 该课程包含的BMS文件的MD5哈希列表
     pub md5: Vec<String>,
@@ -134,7 +137,7 @@ impl BmsTableParser {
 
     /// 从HTML页面中提取bmstable字段
     /// 
-    /// 解析HTML页面的head标签，查找包含bmstable字段的meta标签或script标签，
+    /// 解析HTML页面的head标签，查找包含bmstable字段的meta标签，
     /// 提取指向JSON配置文件的URL。
     /// 
     /// # 参数
@@ -166,38 +169,24 @@ impl BmsTableParser {
         let response = self.client.get(html_url).send().await?;
         let html_content = response.text().await?;
         let document = Html::parse_document(&html_content);
-        let head_selector = Selector::parse("head").unwrap();
-
-        let head = document.select(&head_selector).next().ok_or(anyhow::anyhow!("未找到head标签"))?;
-        let head_text = head.inner_html();
-
-        // 查找bmstable字段 - 支持多种格式
-        let pattern = "bmstable";
-
-        let start = head_text.find(pattern).ok_or(anyhow::anyhow!("未找到bmstable字段"))?;
-        let remaining = &head_text[start..];
-
-        // 查找引号包围的URL
-        if let Some(quote_start) = remaining.find('"') {
-            let after_quote = &remaining[quote_start + 1..];
-            if let Some(quote_end) = after_quote.find('"') {
-                let bmstable_url = &after_quote[..quote_end];
-                if !bmstable_url.is_empty() {
-                    return Ok(bmstable_url.to_string());
+        
+        // 查找所有meta标签
+        let meta_selector = Selector::parse("meta").unwrap();
+        
+        for element in document.select(&meta_selector) {
+            // 检查是否有name属性为"bmstable"的meta标签
+            if let Some(name_attr) = element.value().attr("name") {
+                if name_attr == "bmstable" {
+                    // 获取content属性
+                    if let Some(content_attr) = element.value().attr("content") {
+                        if !content_attr.is_empty() {
+                            return Ok(content_attr.to_string());
+                        }
+                    }
                 }
             }
         }
-
-        // 查找单引号包围的URL
-        if let Some(quote_start) = remaining.find('\'') {
-            let after_quote = &remaining[quote_start + 1..];
-            if let Some(quote_end) = after_quote.find('\'') {
-                let bmstable_url = &after_quote[..quote_end];
-                if !bmstable_url.is_empty() {
-                    return Ok(bmstable_url.to_string());
-                }
-            }
-        }
+        
         Err(anyhow::anyhow!("未找到bmstable字段"))
     }
 

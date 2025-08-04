@@ -1,0 +1,67 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "调试主程序",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/bms-table.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "externalTerminal",
+            "preLaunchTask": "cargo build"
+        },
+        {
+            "name": "调试测试",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/deps/bms_table-*.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "externalTerminal",
+            "preLaunchTask": "cargo test --no-run"
+        },
+        {
+            "name": "调试文档测试",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/deps/bms_table-*.exe",
+            "args": ["--doc"],
+            "cwd": "${workspaceFolder}",
+            "console": "externalTerminal",
+            "preLaunchTask": "cargo test --doc --no-run"
+        },
+        {
+            "name": "调试特定测试",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/deps/bms_table-*.exe",
+            "args": ["--test", "test_parser_creation"],
+            "cwd": "${workspaceFolder}",
+            "console": "externalTerminal",
+            "preLaunchTask": "cargo test --no-run"
+        },
+        {
+            "name": "调试主程序 (CodeLLDB)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/bms-table.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "externalTerminal",
+            "preLaunchTask": "cargo build",
+            "sourceLanguages": ["rust"]
+        },
+        {
+            "name": "调试测试 (CodeLLDB)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/deps/bms_table-*.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "externalTerminal",
+            "preLaunchTask": "cargo test --no-run",
+            "sourceLanguages": ["rust"]
+        }
+    ]
+} 
