@@ -66,42 +66,39 @@ BMS表格的头信息，包含：
 
 ### 作为库使用
 
-#### 方法1: 使用BmsTableParser（传统方式）
+#### 方法1: 使用fetch_bms_table（推荐方式）
 
 ```rust
-use bms_table::fetch::BmsTableParser;
+use bms_table::fetch_bms_table;
 use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let parser = BmsTableParser::new();
     let base_url = "https://stellabms.xyz/sl/table.html";
     
     // 获取完整的BMS表格数据
-    let (header, scores) = parser.fetch_complete_table(base_url).await?;
+    let bms_table = fetch_bms_table(base_url).await?;
     
-    println!("表格名称: {}", header.name);
-    println!("分数数据数量: {}", scores.len());
+    println!("表格名称: {}", bms_table.name);
+    println!("分数数据数量: {}", bms_table.scores.len());
     
     Ok(())
 }
 ```
 
-#### 方法2: 使用新的异步API（推荐）
+#### 方法2: 分步获取JSON数据（高级用法）
 
 ```rust
-use bms_table::{fetch_bms_table, create_bms_table_from_json, fetch_table_json_data};
+use bms_table::{fetch_table_json_data, create_bms_table_from_json};
 use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // 直接从URL获取BmsTable对象
-    let bms_table = fetch_bms_table("https://stellabms.xyz/sl/table.html").await?;
-    println!("表格名称: {}", bms_table.name);
-    
-    // 或者分步获取JSON数据
+    // 分步获取JSON数据
     let (header_url, header_json, data_json) = fetch_table_json_data("https://stellabms.xyz/sl/table.html").await?;
     let bms_table = create_bms_table_from_json(&header_url, header_json, data_json).await?;
+    
+    println!("表格名称: {}", bms_table.name);
     
     Ok(())
 }
@@ -130,16 +127,9 @@ cargo run --example demo
 #### `create_bms_table_from_json(header_url: &str, header_json: Value, data_json: Value) -> Result<BmsTable>`
 从header的绝对URL地址、header和data的JSON解析树创建BmsTable对象。
 
-### BmsTableParser类
+### 内部实现
 
-#### 构造函数
-- `new()` - 创建新的解析器实例
-
-#### 主要方法
-- `extract_bmstable_url(html_url)` - 从HTML页面提取bmstable URL
-- `get_table_header(header_url)` - 获取并解析表格头信息
-- `get_score_data(score_url)` - 获取并解析分数数据
-- `fetch_complete_table(base_url)` - 完整的获取流程
+BmsTableParser类现在是内部实现，不再对外公开。用户应该使用上面提到的公共API函数。
 
 ## 依赖项
 

@@ -33,7 +33,6 @@ use anyhow::Result;
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 /// BMS表格头信息
 ///
@@ -131,7 +130,7 @@ impl<'de> serde::Deserialize<'de> for ScoreItem {
         }
 
         let helper = ScoreItemHelper::deserialize(deserializer)?;
-        
+
         // 将空字符串转换为None
         let id = helper.id;
         let md5 = helper.md5.filter(|s| !s.is_empty());
@@ -154,237 +153,30 @@ impl<'de> serde::Deserialize<'de> for ScoreItem {
     }
 }
 
-/// BMS表格解析器
-///
-/// 提供从BMS表格网站获取和解析数据的功能。
-/// 使用HTTP客户端来获取HTML和JSON数据，并提供完整的解析流程。
-pub struct BmsTableParser {
-    /// HTTP客户端，用于发送请求
-    client: Client,
-}
+/// 从HTML页面中提取bmstable字段指向的JSON文件URL
+pub async fn extract_bmstable_url(html_url: &str) -> Result<String> {
+    let response = Client::new().get(html_url).send().await?;
+    let html_content = response.text().await?;
+    let document = Html::parse_document(&html_content);
 
-impl BmsTableParser {
-    /// 创建新的BMS表格解析器实例
-    ///
-    /// # 返回值
-    ///
-    /// 返回一个配置好的解析器实例，包含HTTP客户端。
-    ///
-    /// # 示例
-    ///
-    /// ```rust
-    /// use bms_table::fetch::BmsTableParser;
-    ///
-    /// let parser = BmsTableParser::new();
-    /// ```
-    pub fn new() -> Self {
-        Self {
-            client: Client::new(),
-        }
-    }
+    // 查找所有meta标签
+    let meta_selector = Selector::parse("meta").unwrap();
 
-    /// 从HTML页面中提取bmstable字段
-    ///
-    /// 解析HTML页面的head标签，查找包含bmstable字段的meta标签，
-    /// 提取指向JSON配置文件的URL。
-    ///
-    /// # 参数
-    ///
-    /// * `html_url` - HTML页面的URL
-    ///
-    /// # 返回值
-    ///
-    /// 返回提取到的bmstable URL字符串，如果未找到则返回错误。
-    ///
-    /// # 错误
-    ///
-    /// 如果无法获取HTML页面、解析失败或未找到bmstable字段，将返回错误。
-    ///
-    /// # 示例
-    ///
-    /// ```rust,no_run
-    /// use bms_table::fetch::BmsTableParser;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> anyhow::Result<()> {
-    ///     let parser = BmsTableParser::new();
-    ///     let url = parser.extract_bmstable_url("https://example.com/table.html").await?;
-    ///     println!("bmstable URL: {}", url);
-    ///     Ok(())
-    /// }
-    /// ```
-    pub async fn extract_bmstable_url(&self, html_url: &str) -> Result<String> {
-        let response = self.client.get(html_url).send().await?;
-        let html_content = response.text().await?;
-        let document = Html::parse_document(&html_content);
-
-        // 查找所有meta标签
-        let meta_selector = Selector::parse("meta").unwrap();
-
-        for element in document.select(&meta_selector) {
-            // 检查是否有name属性为"bmstable"的meta标签
-            if let Some(name_attr) = element.value().attr("name") {
-                if name_attr == "bmstable" {
-                    // 获取content属性
-                    if let Some(content_attr) = element.value().attr("content") {
-                        if !content_attr.is_empty() {
-                            return Ok(content_attr.to_string());
-                        }
+    for element in document.select(&meta_selector) {
+        // 检查是否有name属性为"bmstable"的meta标签
+        if let Some(name_attr) = element.value().attr("name") {
+            if name_attr == "bmstable" {
+                // 获取content属性
+                if let Some(content_attr) = element.value().attr("content") {
+                    if !content_attr.is_empty() {
+                        return Ok(content_attr.to_string());
                     }
                 }
             }
         }
-
-        Err(anyhow::anyhow!("未找到bmstable字段"))
     }
 
-    /// 获取并解析BMS表格头信息
-    ///
-    /// 从指定的URL获取JSON格式的BMS表格头信息，并解析为结构体。
-    ///
-    /// # 参数
-    ///
-    /// * `header_url` - 表格头信息JSON文件的URL
-    ///
-    /// # 返回值
-    ///
-    /// 返回解析后的BmsTableHeader结构体，包含表格名称、符号、课程信息等。
-    ///
-    /// # 错误
-    ///
-    /// 如果无法获取JSON文件或解析失败，将返回错误。
-    ///
-    /// # 示例
-    ///
-    /// ```rust,no_run
-    /// use bms_table::fetch::BmsTableParser;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> anyhow::Result<()> {
-    ///     let parser = BmsTableParser::new();
-    ///     let header = parser.get_table_header("https://example.com/header.json").await?;
-    ///     println!("表格名称: {}", header.name);
-    ///     Ok(())
-    /// }
-    /// ```
-    pub async fn get_table_header(&self, header_url: &str) -> Result<BmsTableHeader> {
-        let response = self.client.get(header_url).send().await?;
-        let json_content = response.text().await?;
-
-        let header: BmsTableHeader = serde_json::from_str(&json_content)?;
-        Ok(header)
-    }
-
-    /// 获取并解析分数数据
-    ///
-    /// 从指定的URL获取JSON格式的分数数据，并解析为结构体数组。
-    ///
-    /// # 参数
-    ///
-    /// * `score_url` - 分数数据JSON文件的URL
-    ///
-    /// # 返回值
-    ///
-    /// 返回解析后的ScoreItem数组，包含所有BMS文件的分数数据。
-    ///
-    /// # 错误
-    ///
-    /// 如果无法获取JSON文件或解析失败，将返回错误。
-    ///
-    /// # 示例
-    ///
-    /// ```rust,no_run
-    /// use bms_table::fetch::BmsTableParser;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> anyhow::Result<()> {
-    ///     let parser = BmsTableParser::new();
-    ///     let scores = parser.get_score_data("https://example.com/score.json").await?;
-    ///     println!("分数数据数量: {}", scores.len());
-    ///     Ok(())
-    /// }
-    /// ```
-    pub async fn get_score_data(&self, score_url: &str) -> Result<Vec<ScoreItem>> {
-        let response = self.client.get(score_url).send().await?;
-        let json_content = response.text().await?;
-
-        let scores: Vec<ScoreItem> = serde_json::from_str(&json_content)?;
-        Ok(scores)
-    }
-
-    /// 完整的BMS表格数据获取流程
-    ///
-    /// 执行完整的BMS表格数据获取流程：
-    /// 1. 从HTML页面提取bmstable字段
-    /// 2. 获取并解析表格头信息
-    /// 3. 获取并解析分数数据
-    ///
-    /// # 参数
-    ///
-    /// * `base_url` - BMS表格HTML页面的URL
-    ///
-    /// # 返回值
-    ///
-    /// 返回一个元组，包含表格头信息和分数数据数组。
-    ///
-    /// # 错误
-    ///
-    /// 如果在任何步骤中发生错误（网络错误、解析错误等），将返回错误。
-    ///
-    /// # 示例
-    ///
-    /// ```rust,no_run
-    /// use bms_table::fetch::BmsTableParser;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> anyhow::Result<()> {
-    ///     let parser = BmsTableParser::new();
-    ///     let (header, scores) = parser.fetch_complete_table("https://example.com/table.html").await?;
-    ///     
-    ///     println!("表格名称: {}", header.name);
-    ///     println!("分数数据数量: {}", scores.len());
-    ///     
-    ///     // 显示第一个分数数据
-    ///     if let Some(first_score) = scores.first() {
-    ///         if let Some(title) = &first_score.title {
-    ///             println!("第一个歌曲: {}", title);
-    ///         }
-    ///     }
-    ///     
-    ///     Ok(())
-    /// }
-    /// ```
-    pub async fn fetch_complete_table(
-        &self,
-        base_url: &str,
-    ) -> Result<(BmsTableHeader, Vec<ScoreItem>)> {
-        // 1. 从HTML页面提取bmstable URL
-        let bmstable_url = self.extract_bmstable_url(base_url).await?;
-
-        // 2. 解析bmstable URL为绝对路径
-        let base_url_obj = Url::parse(base_url)?;
-        let header_url = base_url_obj.join(&bmstable_url)?;
-
-        // 3. 获取表格头信息
-        let header = self.get_table_header(header_url.as_str()).await?;
-
-        // 4. 构建分数数据URL
-        let score_url = header_url.join(&header.data_url)?;
-
-        // 5. 获取分数数据
-        let scores = self.get_score_data(score_url.as_str()).await?;
-
-        Ok((header, scores))
-    }
-}
-
-impl Default for BmsTableParser {
-    /// 创建默认的BMS表格解析器实例
-    ///
-    /// 等同于调用 `BmsTableParser::new()`。
-    fn default() -> Self {
-        Self::new()
-    }
+    Err(anyhow::anyhow!("未找到bmstable字段"))
 }
 
 #[cfg(test)]
@@ -394,11 +186,7 @@ mod tests {
     /// 测试解析器创建功能
     #[tokio::test]
     async fn test_parser_creation() {
-        let parser = BmsTableParser::new();
-        assert!(parser
-            .client
-            .get("https://stellabms.xyz/sl/table.html")
-            .send()
+        assert!(extract_bmstable_url("https://stellabms.xyz/sl/table.html")
             .await
             .is_ok());
     }

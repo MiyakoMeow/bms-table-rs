@@ -52,7 +52,7 @@
 pub mod fetch;
 
 use anyhow::Result;
-use bms_table::fetch::BmsTableParser;
+use bms_table::fetch_bms_table;
 
 /// 主函数
 ///
@@ -72,8 +72,6 @@ async fn main() -> Result<()> {
     println!("BMS表格数据获取器");
     println!("==================");
 
-    // 创建解析器实例
-    let parser = BmsTableParser::new();
     let base_url = "https://stellabms.xyz/sl/table.html";
 
     // 显示正在获取数据的信息
@@ -81,28 +79,25 @@ async fn main() -> Result<()> {
     println!("URL: {base_url}");
 
     // 获取完整的BMS表格数据
-    let (header, scores) = parser
-        .fetch_complete_table(base_url)
-        .await
-        .unwrap_or_else(|e| {
-            println!("❌ 获取BMS表格数据失败: {e}");
-            std::process::exit(1);
-        });
+    let bms_table = fetch_bms_table(base_url).await.unwrap_or_else(|e| {
+        println!("❌ 获取BMS表格数据失败: {e}");
+        std::process::exit(1);
+    });
 
     // 显示成功信息
     println!("\n✅ 成功获取BMS表格数据!");
 
     // 显示表格基本信息
     println!("\n📋 表格信息:");
-    println!("  名称: {}", header.name);
-    println!("  符号: {}", header.symbol);
-    println!("  数据URL: {}", header.data_url);
-    println!("  课程数量: {}", header.course.len());
-    println!("  分数数据数量: {}", scores.len());
+    println!("  名称: {}", bms_table.name);
+    println!("  符号: {}", bms_table.symbol);
+    println!("  数据URL: {}", bms_table.data_url);
+    println!("  课程数量: {}", bms_table.course.len());
+    println!("  分数数据数量: {}", bms_table.scores.len());
 
     // 显示课程信息
     println!("\n🎵 课程信息:");
-    for course in header.course.iter().flatten() {
+    for course in bms_table.course.iter().flatten() {
         println!("  - {}", course.name);
         println!("    约束: {:?}", course.constraint);
         println!("    奖杯: {:?}", course.trophy);
@@ -111,7 +106,7 @@ async fn main() -> Result<()> {
 
     // 显示前几个分数数据
     println!("\n📊 分数数据 (前5个):");
-    for (i, score) in scores.iter().take(5).enumerate() {
+    for (i, score) in bms_table.scores.iter().take(5).enumerate() {
         println!(
             "  {}. {} - {}",
             i + 1,
@@ -129,9 +124,13 @@ async fn main() -> Result<()> {
     }
 
     // 演示查找功能
-    if let Some(first_score) = scores.first() {
+    if let Some(first_score) = bms_table.scores.first() {
         println!("\n🔍 演示查找功能:");
-        if let Some(found) = scores.iter().find(|score| score.md5 == first_score.md5) {
+        if let Some(found) = bms_table
+            .scores
+            .iter()
+            .find(|score| score.md5 == first_score.md5)
+        {
             println!(
                 "  通过MD5找到: {} - {}",
                 found.title.as_ref().unwrap_or(&"".to_string()),
@@ -139,7 +138,8 @@ async fn main() -> Result<()> {
             );
         }
 
-        if let Some(found) = scores
+        if let Some(found) = bms_table
+            .scores
             .iter()
             .find(|score| score.sha256 == first_score.sha256)
         {

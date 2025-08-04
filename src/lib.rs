@@ -3,13 +3,13 @@
 
 #![warn(missing_docs)]
 
+mod fetch;
+
 use anyhow::Result;
 use serde_json::Value;
 use url::Url;
 
-use crate::fetch::{BmsTableHeader, BmsTableParser, CourseInfo, ScoreItem};
-
-pub mod fetch;
+use crate::fetch::{extract_bmstable_url, BmsTableHeader, CourseInfo, ScoreItem};
 
 /// BMS难度表数据，看这一个就够了
 #[derive(Debug, Clone, PartialEq)]
@@ -124,10 +124,8 @@ pub async fn create_bms_table_from_json(
 /// }
 /// ```
 pub async fn fetch_table_json_data(url: &str) -> Result<(String, Value, Value)> {
-    let parser = BmsTableParser::new();
-
     // 1. 从HTML页面提取bmstable URL
-    let bmstable_url = parser.extract_bmstable_url(url).await?;
+    let bmstable_url = extract_bmstable_url(url).await?;
 
     // 2. 解析bmstable URL为绝对路径
     let base_url_obj = Url::parse(url)?;
