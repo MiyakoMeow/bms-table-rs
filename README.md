@@ -10,6 +10,7 @@
 - 🔎 支持通过MD5和SHA256查找分数数据
 - 📋 课程信息管理和查询
 - 🏆 奖杯信息解析
+- 🚀 提供多种异步API接口
 
 ## 项目结构
 
@@ -17,12 +18,24 @@
 bms-table/
 ├── Cargo.toml          # 项目配置和依赖
 ├── src/
-│   ├── lib.rs          # 核心库代码
+│   ├── lib.rs          # 核心库代码和API接口
+│   ├── fetch.rs        # 数据获取和解析模块
 │   └── main.rs         # 示例程序
+├── examples/
+│   └── demo.rs         # 函数演示示例
 └── README.md           # 项目说明
 ```
 
 ## 数据结构
+
+### BmsTable
+完整的BMS表格数据，包含：
+- `name`: 表格名称
+- `symbol`: 表格符号
+- `header_url`: 表格头文件URL
+- `data_url`: 分数数据文件URL
+- `course`: 课程信息数组
+- `scores`: 分数数据数组
 
 ### BmsTableHeader
 BMS表格的头信息，包含：
@@ -40,21 +53,23 @@ BMS表格的头信息，包含：
 
 ### ScoreItem
 分数数据项，包含：
-- `id`: 唯一标识符
-- `md5`: MD5哈希
-- `sha256`: SHA256哈希
-- `title`: 歌曲标题
-- `artist`: 艺术家
-- `url`: 下载链接
-- `url_diff`: 差分文件链接
 - `level`: 难度等级
+- `id`: 唯一标识符（可选）
+- `md5`: MD5哈希（可选）
+- `sha256`: SHA256哈希（可选）
+- `title`: 歌曲标题（可选）
+- `artist`: 艺术家（可选）
+- `url`: 下载链接（可选）
+- `url_diff`: 差分文件链接（可选）
 
 ## 使用方法
 
 ### 作为库使用
 
+#### 方法1: 使用BmsTableParser（传统方式）
+
 ```rust
-use bms_table::BmsTableParser;
+use bms_table::fetch::BmsTableParser;
 use anyhow::Result;
 
 #[tokio::main]
@@ -65,10 +80,28 @@ async fn main() -> Result<()> {
     // 获取完整的BMS表格数据
     let (header, scores) = parser.fetch_complete_table(base_url).await?;
     
-    // 查找特定MD5的分数数据
-    if let Some(score) = parser.find_score_by_md5(&scores, "your_md5_here") {
-        println!("找到歌曲: {} - {}", score.title, score.artist);
-    }
+    println!("表格名称: {}", header.name);
+    println!("分数数据数量: {}", scores.len());
+    
+    Ok(())
+}
+```
+
+#### 方法2: 使用新的异步API（推荐）
+
+```rust
+use bms_table::{fetch_bms_table, create_bms_table_from_json, fetch_table_json_data};
+use anyhow::Result;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // 直接从URL获取BmsTable对象
+    let bms_table = fetch_bms_table("https://stellabms.xyz/sl/table.html").await?;
+    println!("表格名称: {}", bms_table.name);
+    
+    // 或者分步获取JSON数据
+    let (header_url, header_json, data_json) = fetch_table_json_data("https://stellabms.xyz/sl/table.html").await?;
+    let bms_table = create_bms_table_from_json(&header_url, header_json, data_json).await?;
     
     Ok(())
 }
@@ -77,12 +110,27 @@ async fn main() -> Result<()> {
 ### 运行示例程序
 
 ```bash
+# 运行主程序
 cargo run
+
+# 运行函数演示示例
+cargo run --example demo
 ```
 
 ## API参考
 
-### BmsTableParser
+### 主要异步函数
+
+#### `fetch_bms_table(url: &str) -> Result<BmsTable>`
+从URL直接获取完整的BmsTable对象，这是最简单的方式。
+
+#### `fetch_table_json_data(url: &str) -> Result<(String, Value, Value)>`
+从URL获取header的绝对URL地址、header和data的JSON解析树。
+
+#### `create_bms_table_from_json(header_url: &str, header_json: Value, data_json: Value) -> Result<BmsTable>`
+从header的绝对URL地址、header和data的JSON解析树创建BmsTable对象。
+
+### BmsTableParser类
 
 #### 构造函数
 - `new()` - 创建新的解析器实例
@@ -92,14 +140,6 @@ cargo run
 - `get_table_header(header_url)` - 获取并解析表格头信息
 - `get_score_data(score_url)` - 获取并解析分数数据
 - `fetch_complete_table(base_url)` - 完整的获取流程
-
-#### 查找方法
-- `find_score_by_md5(scores, md5)` - 通过MD5查找分数数据
-- `find_score_by_sha256(scores, sha256)` - 通过SHA256查找分数数据
-- `find_course_by_name(header, name)` - 通过名称查找课程
-
-#### 辅助方法
-- `get_all_courses(header)` - 获取所有课程信息
 
 ## 依赖项
 
@@ -121,6 +161,9 @@ cargo test
 
 # 运行示例程序
 cargo run
+
+# 运行函数演示
+cargo run --example demo
 ```
 
 ## 示例输出
@@ -139,20 +182,45 @@ URL: https://stellabms.xyz/sl/table.html
   名称: Satellite
   符号: sl
   数据URL: score.json
-  课程数量: 1
-  分数数据数量: 4
+  课程数量: 13
+  分数数据数量: 1986
 
 🎵 课程信息:
   - Satellite Skill Analyzer 2nd sl0
     约束: ["grade_mirror", "gauge_lr2", "ln"]
     奖杯: [Trophy { name: "silvermedal", missrate: 5.0, scorerate: 70.0 }, Trophy { name: "goldmedal", missrate: 2.5, scorerate: 85.0 }]
     MD5数量: 4
+  - Satellite Skill Analyzer 2nd sl1
+    约束: ["grade_mirror", "gauge_lr2", "ln"]
+    奖杯: [Trophy { name: "silvermedal", missrate: 5.0, scorerate: 70.0 }, Trophy { name: "goldmedal", missrate: 2.5, scorerate: 85.0 }]
+    MD5数量: 4
+  ... (更多课程)
 
 📊 分数数据 (前5个):
   1. "Fresco" [ANOTHER] - Lemi. obj:69 de 74
      MD5: 176c2b2db4efd66cf186caae7923d477
      URL: https://venue.bmssearch.net/bmsshuin3/75
+  2. -Never ending journey- [BLACKANOTHER] - SOMON
+  3. -終天- [BLACK ANOTHER] - SOMON
+  4. 2anyFirst [7-A] - Sobrem
+     MD5: f5456ea7a63431ce7575d2583fcf9c68
+     URL: http://manbow.nothing.sh/event/event.cgi?action=More_def&num=209&event=127
+
+🔍 演示查找功能:
+  通过MD5找到: "Fresco" [ANOTHER] - Lemi. obj:69 de 74
+  通过SHA256找到: "Fresco" [ANOTHER] - Lemi. obj:69 de 74
 ```
+
+## 特性说明
+
+### 空字符串处理
+ScoreItem中的可选字段在解析时会自动将空字符串转换为None，确保数据的准确性。
+
+### 异步支持
+所有API都是异步的，支持高效的并发操作。
+
+### 错误处理
+使用anyhow进行统一的错误处理，提供清晰的错误信息。
 
 ## 许可证
 
