@@ -86,7 +86,7 @@ pub struct Trophy {
 ///
 /// 表示一个BMS文件的分数数据，包含文件信息和下载链接。
 /// 所有字段都是可选的，因为不同的BMS表格可能有不同的字段。
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ScoreItem {
     /// 难度等级，如 "0"
     pub level: String,
@@ -104,6 +104,54 @@ pub struct ScoreItem {
     pub url: Option<String>,
     /// 差分文件下载链接（可选）
     pub url_diff: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ScoreItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct ScoreItemHelper {
+            level: String,
+            #[serde(default)]
+            id: Option<u64>,
+            #[serde(default)]
+            md5: Option<String>,
+            #[serde(default)]
+            sha256: Option<String>,
+            #[serde(default)]
+            title: Option<String>,
+            #[serde(default)]
+            artist: Option<String>,
+            #[serde(default)]
+            url: Option<String>,
+            #[serde(default)]
+            url_diff: Option<String>,
+        }
+
+        let helper = ScoreItemHelper::deserialize(deserializer)?;
+        
+        // 将空字符串转换为None
+        let id = helper.id;
+        let md5 = helper.md5.filter(|s| !s.is_empty());
+        let sha256 = helper.sha256.filter(|s| !s.is_empty());
+        let title = helper.title.filter(|s| !s.is_empty());
+        let artist = helper.artist.filter(|s| !s.is_empty());
+        let url = helper.url.filter(|s| !s.is_empty());
+        let url_diff = helper.url_diff.filter(|s| !s.is_empty());
+
+        Ok(ScoreItem {
+            level: helper.level,
+            id,
+            md5,
+            sha256,
+            title,
+            artist,
+            url,
+            url_diff,
+        })
+    }
 }
 
 /// BMS表格解析器
