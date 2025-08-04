@@ -78,14 +78,14 @@ async fn main() -> Result<()> {
 
     // 显示正在获取数据的信息
     println!("正在获取BMS表格数据...");
-    println!("URL: {}", base_url);
+    println!("URL: {base_url}");
 
     // 获取完整的BMS表格数据
     let (header, scores) = parser
         .fetch_complete_table(base_url)
         .await
         .unwrap_or_else(|e| {
-            println!("❌ 获取BMS表格数据失败: {}", e);
+            println!("❌ 获取BMS表格数据失败: {e}");
             std::process::exit(1);
         });
 

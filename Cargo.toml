@@ -2,6 +2,14 @@
 name = "bms-table"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.78.0"
+license = "MIT"
+description = "BMS难度表数据获取器"
+authors = ["MiyakoMeow"]
+repository = "https://github.com/MiyakoMeow/bms-table"
+documentation = "https://docs.rs/bms-table"
+categories = ["data-structures", "games"]
+keywords = ["bms", "table", "data", "fetch", "parser"]
 
 [dependencies]
 reqwest = { version = "~0.12", features = ["json"] }

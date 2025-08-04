@@ -4,7 +4,6 @@
 #![warn(missing_docs)]
 
 use anyhow::Result;
-use reqwest;
 use serde_json::Value;
 use url::Url;
 
