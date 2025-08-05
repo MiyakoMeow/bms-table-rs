@@ -139,21 +139,20 @@ impl<'de> serde::Deserialize<'de> for CourseInfo {
         let mut charts = helper
             .charts
             .into_iter()
-            .map(|chart_value| {
-                // 检查是否有level字段
-                if let Some(_) = chart_value.get("level") {
-                    // 如果level字段存在，直接反序列化
-                    serde_json::from_value(chart_value)
-                } else {
+            .map(|mut chart_value| {
+                if chart_value.get("level").is_none() {
                     // 如果level字段不存在，添加默认值0
-                    let mut chart_obj = chart_value.as_object().unwrap().clone();
+                    let Some(chart_obj) = chart_value.as_object() else {
+                        return Err(serde::de::Error::custom("chart_value is not an object"));
+                    };
+                    let mut chart_obj = chart_obj.clone();
                     chart_obj.insert(
                         "level".to_string(),
                         serde_json::Value::String("0".to_string()),
                     );
-                    let modified_chart_value = serde_json::Value::Object(chart_obj);
-                    serde_json::from_value(modified_chart_value)
+                    chart_value = serde_json::Value::Object(chart_obj);
                 }
+                serde_json::from_value(chart_value)
             })
             .collect::<Result<Vec<ChartItem>, serde_json::Error>>()
             .map_err(serde::de::Error::custom)?;
@@ -328,10 +327,12 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
 
 /// 从HTML页面内容中，提取bmstable字段指向的JSON文件URL
 pub async fn extract_bmstable_url(html_content: &str) -> Result<String> {
-    let document = Html::parse_document(&html_content);
+    let document = Html::parse_document(html_content);
 
     // 查找所有meta标签
-    let meta_selector = Selector::parse("meta").unwrap();
+    let Ok(meta_selector) = Selector::parse("meta") else {
+        return Err(anyhow::anyhow!("未找到meta标签"));
+    };
 
     for element in document.select(&meta_selector) {
         // 检查是否有name属性为"bmstable"的meta标签

@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
     };
 
     println!("正在获取BMS表格数据...");
-    println!("URL: {}", url);
+    println!("URL: {url}");
 
     // 获取BMS表格数据
     let bms_table = fetch_bms_table(url).await.context("获取BMS表格数据失败")?;
@@ -55,7 +55,7 @@ async fn main() -> Result<()> {
 
     // 打印完整的BmsTable对象
     println!("📋 BmsTable对象:");
-    println!("{:#?}", bms_table);
+    println!("{bms_table:#?}");
 
     Ok(())
 }
