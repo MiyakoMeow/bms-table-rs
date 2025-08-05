@@ -29,6 +29,8 @@ pub struct BmsTable {
     pub course: Vec<Vec<CourseInfo>>,
     /// 分数数据
     pub scores: Vec<ScoreItem>,
+    /// 难度等级顺序，包含数字和字符串
+    pub level_order: Vec<String>,
     /// 额外数据
     pub extra: Value,
 }
@@ -165,13 +167,14 @@ pub async fn create_bms_table_from_json(
     let header: BmsTableHeader = serde_json::from_value(header_json.clone())?;
 
     // 提取额外数据（header_json中除了BmsTableHeader字段之外的数据）
-    let mut extra_data = header_json.clone();
+    let mut extra_data = header_json;
     if let Some(obj) = extra_data.as_object_mut() {
         // 移除已知字段，保留额外字段
         obj.remove("name");
         obj.remove("symbol");
         obj.remove("data_url");
         obj.remove("course");
+        obj.remove("level_order");
     }
 
     // 解析data JSON
@@ -189,6 +192,7 @@ pub async fn create_bms_table_from_json(
         data_url: data_url_obj,
         course: header.course,
         scores,
+        level_order: header.level_order,
         extra: extra_data,
     };
 
@@ -225,6 +229,7 @@ mod tests {
                     }
                 ]
             ],
+            "level_order": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, "!i"],
             "extra_field": "extra_value",
             "another_field": 123
         });
@@ -290,6 +295,13 @@ mod tests {
         assert_eq!(score.extra["custom_field"], "custom_value");
         assert_eq!(score.extra["rating"], 5.0);
         assert!(!score.extra.get("level").is_some()); // 确保已知字段被移除
+
+        // 测试level_order
+        assert_eq!(bms_table.level_order.len(), 22);
+        assert_eq!(bms_table.level_order[0], "0");
+        assert_eq!(bms_table.level_order[20], "20");
+        assert_eq!(bms_table.level_order[21], "!i");
+        assert!(!bms_table.extra.get("level_order").is_some()); // 确保level_order被移除
     }
 
     /// 测试创建BmsTable对象时处理空字符串字段
@@ -340,6 +352,7 @@ mod tests {
             data_url: Url::parse("https://example.com/score.json").unwrap(),
             course: vec![],
             scores: vec![],
+            level_order: vec!["0".to_string(), "1".to_string()],
             extra: json!({}),
         };
 
@@ -347,6 +360,7 @@ mod tests {
         assert_eq!(bms_table.symbol, "test");
         assert_eq!(bms_table.course.len(), 0);
         assert_eq!(bms_table.scores.len(), 0);
+        assert_eq!(bms_table.level_order.len(), 2);
     }
 
     /// 测试BmsTable的PartialEq实现
@@ -359,6 +373,7 @@ mod tests {
             data_url: Url::parse("https://example.com/score.json").unwrap(),
             course: vec![],
             scores: vec![],
+            level_order: vec!["0".to_string(), "1".to_string()],
             extra: json!({}),
         };
 
@@ -369,6 +384,7 @@ mod tests {
             data_url: Url::parse("https://example.com/score.json").unwrap(),
             course: vec![],
             scores: vec![],
+            level_order: vec!["0".to_string(), "1".to_string()],
             extra: json!({}),
         };
 
@@ -447,6 +463,7 @@ mod tests {
             symbol: "test".to_string(),
             data_url: "score.json".to_string(),
             course: vec![],
+            level_order: vec!["0".to_string(), "1".to_string(), "!i".to_string()],
         };
 
         let json = serde_json::to_string(&header).unwrap();

@@ -20,7 +20,7 @@ use url::Url;
 ///
 /// 包含表格的基本信息和课程配置。
 /// 这个结构体对应BMS表格头JSON文件的主要结构。
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct BmsTableHeader {
     /// 表格名称，如 "Satellite"
     pub name: String,
@@ -31,6 +31,49 @@ pub struct BmsTableHeader {
     /// 课程信息数组，每个元素是一个课程组的数组
     #[serde(default)]
     pub course: Vec<Vec<CourseInfo>>,
+    /// 难度等级顺序，包含数字和字符串
+    #[serde(default)]
+    pub level_order: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for BmsTableHeader {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct BmsTableHeaderHelper {
+            name: String,
+            symbol: String,
+            data_url: String,
+            #[serde(default)]
+            course: Vec<Vec<CourseInfo>>,
+            #[serde(default)]
+            level_order: Option<Vec<Value>>,
+        }
+
+        let helper = BmsTableHeaderHelper::deserialize(deserializer)?;
+
+        // 处理level_order，将数字和字符串都转换为字符串
+        let level_order = helper
+            .level_order
+            .unwrap_or_default()
+            .into_iter()
+            .map(|v| match v {
+                Value::Number(n) => n.to_string(),
+                Value::String(s) => s,
+                _ => v.to_string(),
+            })
+            .collect();
+
+        Ok(BmsTableHeader {
+            name: helper.name,
+            symbol: helper.symbol,
+            data_url: helper.data_url,
+            course: helper.course,
+            level_order,
+        })
+    }
 }
 
 /// 课程信息
