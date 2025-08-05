@@ -181,3 +181,246 @@ pub async fn fetch_bms_table(url: &str) -> Result<BmsTable> {
     let (header_url, header_json, data_json) = fetch_table_json_data(url).await?;
     create_bms_table_from_json(&header_url, header_json, data_json).await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use url::Url;
+
+    /// 测试创建BmsTable对象
+    #[tokio::test]
+    async fn test_create_bms_table_from_json() {
+        let header_url = "https://example.com/header.json";
+        let header_json = json!({
+            "name": "Test Table",
+            "symbol": "test",
+            "data_url": "score.json",
+            "course": [
+                [
+                    {
+                        "name": "Test Course",
+                        "constraint": ["grade_mirror"],
+                        "trophy": [
+                            {
+                                "name": "goldmedal",
+                                "missrate": 1.0,
+                                "scorerate": 90.0
+                            }
+                        ],
+                        "md5": ["test_md5_1", "test_md5_2"]
+                    }
+                ]
+            ]
+        });
+        let data_json = json!([
+            {
+                "level": "1",
+                "id": 1,
+                "md5": "test_md5_1",
+                "sha256": "test_sha256_1",
+                "title": "Test Song",
+                "artist": "Test Artist",
+                "url": "https://example.com/test.bms",
+                "url_diff": "https://example.com/test_diff.bms"
+            }
+        ]);
+
+        let result = create_bms_table_from_json(header_url, header_json, data_json).await;
+        assert!(result.is_ok());
+
+        let bms_table = result.unwrap();
+        assert_eq!(bms_table.name, "Test Table");
+        assert_eq!(bms_table.symbol, "test");
+        assert_eq!(
+            bms_table.data_url.as_str(),
+            "https://example.com/score.json"
+        );
+        assert_eq!(bms_table.course.len(), 1);
+        assert_eq!(bms_table.scores.len(), 1);
+
+        // 测试课程信息
+        let course = &bms_table.course[0][0];
+        assert_eq!(course.name, "Test Course");
+        assert_eq!(course.constraint, vec!["grade_mirror"]);
+        assert_eq!(course.trophy.len(), 1);
+        assert_eq!(course.trophy[0].name, "goldmedal");
+        assert_eq!(course.trophy[0].missrate, 1.0);
+        assert_eq!(course.trophy[0].scorerate, 90.0);
+        assert_eq!(course.md5, vec!["test_md5_1", "test_md5_2"]);
+
+        // 测试分数数据
+        let score = &bms_table.scores[0];
+        assert_eq!(score.level, "1");
+        assert_eq!(score.id, Some(1));
+        assert_eq!(score.md5, Some("test_md5_1".to_string()));
+        assert_eq!(score.sha256, Some("test_sha256_1".to_string()));
+        assert_eq!(score.title, Some("Test Song".to_string()));
+        assert_eq!(score.artist, Some("Test Artist".to_string()));
+        assert_eq!(score.url, Some("https://example.com/test.bms".to_string()));
+        assert_eq!(
+            score.url_diff,
+            Some("https://example.com/test_diff.bms".to_string())
+        );
+    }
+
+    /// 测试创建BmsTable对象时处理空字符串字段
+    #[tokio::test]
+    async fn test_create_bms_table_with_empty_fields() {
+        let header_url = "https://example.com/header.json";
+        let header_json = json!({
+            "name": "Test Table",
+            "symbol": "test",
+            "data_url": "score.json",
+            "course": []
+        });
+        let data_json = json!([
+            {
+                "level": "1",
+                "id": 1,
+                "md5": "",
+                "sha256": "",
+                "title": "",
+                "artist": "",
+                "url": "",
+                "url_diff": ""
+            }
+        ]);
+
+        let result = create_bms_table_from_json(header_url, header_json, data_json).await;
+        assert!(result.is_ok());
+
+        let bms_table = result.unwrap();
+        let score = &bms_table.scores[0];
+        assert_eq!(score.level, "1");
+        assert_eq!(score.id, Some(1));
+        assert_eq!(score.md5, None);
+        assert_eq!(score.sha256, None);
+        assert_eq!(score.title, None);
+        assert_eq!(score.artist, None);
+        assert_eq!(score.url, None);
+        assert_eq!(score.url_diff, None);
+    }
+
+    /// 测试BmsTable结构体的基本功能
+    #[test]
+    fn test_bms_table_creation() {
+        let bms_table = BmsTable {
+            name: "Test Table".to_string(),
+            symbol: "test".to_string(),
+            header_url: Url::parse("https://example.com/header.json").unwrap(),
+            data_url: Url::parse("https://example.com/score.json").unwrap(),
+            course: vec![],
+            scores: vec![],
+        };
+
+        assert_eq!(bms_table.name, "Test Table");
+        assert_eq!(bms_table.symbol, "test");
+        assert_eq!(bms_table.course.len(), 0);
+        assert_eq!(bms_table.scores.len(), 0);
+    }
+
+    /// 测试BmsTable的PartialEq实现
+    #[test]
+    fn test_bms_table_partial_eq() {
+        let table1 = BmsTable {
+            name: "Test Table".to_string(),
+            symbol: "test".to_string(),
+            header_url: Url::parse("https://example.com/header.json").unwrap(),
+            data_url: Url::parse("https://example.com/score.json").unwrap(),
+            course: vec![],
+            scores: vec![],
+        };
+
+        let table2 = BmsTable {
+            name: "Test Table".to_string(),
+            symbol: "test".to_string(),
+            header_url: Url::parse("https://example.com/header.json").unwrap(),
+            data_url: Url::parse("https://example.com/score.json").unwrap(),
+            course: vec![],
+            scores: vec![],
+        };
+
+        assert_eq!(table1, table2);
+    }
+
+    /// 测试错误处理 - 无效的JSON
+    #[tokio::test]
+    async fn test_create_bms_table_invalid_json() {
+        let header_url = "https://example.com/header.json";
+        let header_json = json!({
+            "name": "Test Table",
+            "symbol": "test",
+            "data_url": "score.json"
+            // 缺少必要的字段
+        });
+        let data_json = json!([
+            {
+                "level": "1",
+                "id": 1
+                // 缺少必要的字段
+            }
+        ]);
+
+        let result = create_bms_table_from_json(header_url, header_json, data_json).await;
+        assert!(result.is_ok()); // 这个测试应该通过，因为缺少的字段有默认值
+    }
+
+    /// 测试错误处理 - 无效的URL
+    #[tokio::test]
+    async fn test_create_bms_table_invalid_url() {
+        let header_url = "invalid-url";
+        let header_json = json!({
+            "name": "Test Table",
+            "symbol": "test",
+            "data_url": "score.json",
+            "course": []
+        });
+        let data_json = json!([]);
+
+        let result = create_bms_table_from_json(header_url, header_json, data_json).await;
+        assert!(result.is_err());
+    }
+
+    /// 测试fetch_table_json_data函数的错误处理
+    #[tokio::test]
+    async fn test_fetch_table_json_data_invalid_url() {
+        let result = fetch_table_json_data("https://invalid-url-that-does-not-exist.com").await;
+        assert!(result.is_err());
+    }
+
+    /// 测试fetch_bms_table函数的错误处理
+    #[tokio::test]
+    async fn test_fetch_bms_table_invalid_url() {
+        let result = fetch_bms_table("https://invalid-url-that-does-not-exist.com").await;
+        assert!(result.is_err());
+    }
+
+    /// 测试URL解析功能
+    #[test]
+    fn test_url_parsing() {
+        let base_url = "https://example.com/table.html";
+        let bmstable_url = "header.json";
+
+        let base_url_obj = Url::parse(base_url).unwrap();
+        let header_url = base_url_obj.join(bmstable_url).unwrap();
+
+        assert_eq!(header_url.as_str(), "https://example.com/header.json");
+    }
+
+    /// 测试JSON序列化和反序列化
+    #[test]
+    fn test_json_serialization() {
+        let header = BmsTableHeader {
+            name: "Test Table".to_string(),
+            symbol: "test".to_string(),
+            data_url: "score.json".to_string(),
+            course: vec![],
+        };
+
+        let json = serde_json::to_string(&header).unwrap();
+        let parsed: BmsTableHeader = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(header, parsed);
+    }
+}

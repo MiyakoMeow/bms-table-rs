@@ -9,25 +9,6 @@
 //! - 解析BMS表格头信息（包含课程、奖杯等元数据）
 //! - 获取和解析分数数据（包含歌曲信息、下载链接等）
 //! - 完整的BMS表格数据获取流程
-//!
-//! # 使用示例
-//!
-//! ```rust
-//! use bms_table::fetch::BmsTableParser;
-//! use anyhow::Result;
-//!
-//! #[tokio::main]
-//! async fn main() -> Result<()> {
-//!     let parser = BmsTableParser::new();
-//!     
-//!     // 注意：这个示例需要可访问的BMS表格网站
-//!     // let (header, scores) = parser.fetch_complete_table("https://example.com/table.html").await?;
-//!     // println!("表格名称: {}", header.name);
-//!     // println!("分数数据数量: {}", scores.len());
-//!     
-//!     Ok(())
-//! }
-//! ```
 
 use anyhow::Result;
 use reqwest::Client;
