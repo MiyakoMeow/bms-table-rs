@@ -6,10 +6,13 @@
 mod fetch;
 
 use anyhow::Result;
+use reqwest::Client;
 use serde_json::Value;
 use url::Url;
 
-use crate::fetch::{extract_bmstable_url, BmsTableHeader, CourseInfo, ScoreItem};
+use crate::fetch::{
+    extract_bmstable_url, fetch_data_json, is_json_content, BmsTableHeader, CourseInfo, ScoreItem,
+};
 
 /// BMS难度表数据，看这一个就够了
 #[derive(Debug, Clone, PartialEq)]
@@ -26,6 +29,90 @@ pub struct BmsTable {
     pub course: Vec<Vec<CourseInfo>>,
     /// 分数数据
     pub scores: Vec<ScoreItem>,
+}
+
+/// 从URL直接获取BmsTable对象
+///
+/// # 参数
+///
+/// * `url` - BMS表格HTML页面的URL
+///
+/// # 返回值
+///
+/// 返回解析后的BmsTable对象
+///
+/// # 错误
+///
+/// 如果无法获取数据或解析失败，将返回错误
+///
+/// # 示例
+///
+/// ```rust,no_run
+/// use bms_table::fetch_bms_table;
+///
+/// #[tokio::main]
+/// async fn main() -> anyhow::Result<()> {
+///     let bms_table = fetch_bms_table("https://example.com/table.html").await?;
+///     println!("表格名称: {}", bms_table.name);
+///     println!("分数数据数量: {}", bms_table.scores.len());
+///     Ok(())
+/// }
+/// ```
+pub async fn fetch_bms_table(url: &str) -> Result<BmsTable> {
+    let (header_url, header_json, data_json) = fetch_table_json_data(url).await?;
+    create_bms_table_from_json(&header_url, header_json, data_json).await
+}
+
+/// 从URL获取header的绝对URL地址、header和data的JSON解析树
+///
+/// # 参数
+///
+/// * `url` - BMS表格HTML页面的URL或直接指向JSON文件的URL
+///
+/// # 返回值
+///
+/// 返回一个元组，包含header的绝对URL地址、header的JSON解析树和data的JSON解析树
+///
+/// # 错误
+///
+/// 如果无法获取数据或解析失败，将返回错误
+///
+/// # 示例
+///
+/// ```rust,no_run
+/// use bms_table::fetch_table_json_data;
+///
+/// #[tokio::main]
+/// async fn main() -> anyhow::Result<()> {
+///     let (header_url, header_json, data_json) = fetch_table_json_data("https://example.com/table.html").await?;
+///     println!("Header URL: {}", header_url);
+///     println!("Header JSON: {:?}", header_json);
+///     println!("Data JSON: {:?}", data_json);
+///     Ok(())
+/// }
+/// ```
+pub async fn fetch_table_json_data(url: &str) -> Result<(String, Value, Value)> {
+    let response = Client::new().get(url).send().await?;
+    let content = response.text().await?;
+
+    // 判断返回的内容是HTML还是JSON
+    let (header_url_str, header_json) = if is_json_content(&content) {
+        // 如果是JSON，直接当作header处理
+        let header_json: Value = serde_json::from_str(&content)?;
+        (url.to_string(), header_json)
+    } else {
+        let bmstable_url = extract_bmstable_url(&content).await?;
+        let base_url_obj = Url::parse(url)?;
+        let header_url = base_url_obj.join(&bmstable_url)?;
+        let header_response = Client::new().get(header_url.as_str()).send().await?;
+        let header_json_content = header_response.text().await?;
+        let header_json: Value = serde_json::from_str(&header_json_content)?;
+        (header_url.to_string(), header_json)
+    };
+
+    let data_json = fetch_data_json(&header_json, &header_url_str).await?;
+
+    Ok((header_url_str, header_json, data_json))
 }
 
 /// 从header的绝对URL地址、header和data的JSON解析树创建BmsTable对象
@@ -93,93 +180,6 @@ pub async fn create_bms_table_from_json(
     };
 
     Ok(bms_table)
-}
-
-/// 从URL获取header的绝对URL地址、header和data的JSON解析树
-///
-/// # 参数
-///
-/// * `url` - BMS表格HTML页面的URL
-///
-/// # 返回值
-///
-/// 返回一个元组，包含header的绝对URL地址、header的JSON解析树和data的JSON解析树
-///
-/// # 错误
-///
-/// 如果无法获取数据或解析失败，将返回错误
-///
-/// # 示例
-///
-/// ```rust,no_run
-/// use bms_table::fetch_table_json_data;
-///
-/// #[tokio::main]
-/// async fn main() -> anyhow::Result<()> {
-///     let (header_url, header_json, data_json) = fetch_table_json_data("https://example.com/table.html").await?;
-///     println!("Header URL: {}", header_url);
-///     println!("Header JSON: {:?}", header_json);
-///     println!("Data JSON: {:?}", data_json);
-///     Ok(())
-/// }
-/// ```
-pub async fn fetch_table_json_data(url: &str) -> Result<(String, Value, Value)> {
-    // 1. 从HTML页面提取bmstable URL
-    let bmstable_url = extract_bmstable_url(url).await?;
-
-    // 2. 解析bmstable URL为绝对路径
-    let base_url_obj = Url::parse(url)?;
-    let header_url = base_url_obj.join(&bmstable_url)?;
-    let header_url_str = header_url.as_str().to_string();
-
-    // 3. 获取header JSON
-    let header_response = reqwest::Client::new().get(&header_url_str).send().await?;
-    let header_json_content = header_response.text().await?;
-    let header_json: Value = serde_json::from_str(&header_json_content)?;
-
-    // 4. 从header中提取data_url并构建data URL
-    let header: BmsTableHeader = serde_json::from_value(header_json.clone())?;
-    let data_url = header_url.join(&header.data_url)?;
-    let data_url_str = data_url.as_str();
-
-    // 5. 获取data JSON
-    let data_response = reqwest::Client::new().get(data_url_str).send().await?;
-    let data_json_content = data_response.text().await?;
-    let data_json: Value = serde_json::from_str(&data_json_content)?;
-
-    Ok((header_url_str, header_json, data_json))
-}
-
-/// 从URL直接获取BmsTable对象（合并上述两个步骤）
-///
-/// # 参数
-///
-/// * `url` - BMS表格HTML页面的URL
-///
-/// # 返回值
-///
-/// 返回解析后的BmsTable对象
-///
-/// # 错误
-///
-/// 如果无法获取数据或解析失败，将返回错误
-///
-/// # 示例
-///
-/// ```rust,no_run
-/// use bms_table::fetch_bms_table;
-///
-/// #[tokio::main]
-/// async fn main() -> anyhow::Result<()> {
-///     let bms_table = fetch_bms_table("https://example.com/table.html").await?;
-///     println!("表格名称: {}", bms_table.name);
-///     println!("分数数据数量: {}", bms_table.scores.len());
-///     Ok(())
-/// }
-/// ```
-pub async fn fetch_bms_table(url: &str) -> Result<BmsTable> {
-    let (header_url, header_json, data_json) = fetch_table_json_data(url).await?;
-    create_bms_table_from_json(&header_url, header_json, data_json).await
 }
 
 #[cfg(test)]
@@ -422,5 +422,23 @@ mod tests {
         let parsed: BmsTableHeader = serde_json::from_str(&json).unwrap();
 
         assert_eq!(header, parsed);
+    }
+
+    /// 测试JSON内容判断功能
+    #[test]
+    fn test_is_json_content() {
+        // 测试JSON对象
+        assert!(is_json_content(r#"{"name": "test"}"#));
+        assert!(is_json_content(r#"  {"name": "test"}  "#));
+
+        // 测试JSON数组
+        assert!(is_json_content(r#"[1, 2, 3]"#));
+        assert!(is_json_content(r#"  [1, 2, 3]  "#));
+
+        // 测试非JSON内容
+        assert!(!is_json_content("<html><body>test</body></html>"));
+        assert!(!is_json_content("This is plain text"));
+        assert!(!is_json_content(""));
+        assert!(!is_json_content("   "));
     }
 }
