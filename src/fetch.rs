@@ -98,7 +98,7 @@ impl<'de> serde::Deserialize<'de> for BmsTableHeader {
 /// 课程信息
 ///
 /// 定义了一个BMS课程的所有相关信息，包括约束条件、奖杯要求和MD5哈希列表。
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct CourseInfo {
     /// 课程名称，如 "Satellite Skill Analyzer 2nd sl0"
     pub name: String,
@@ -108,8 +108,68 @@ pub struct CourseInfo {
     /// 奖杯信息列表，定义不同等级的奖杯要求
     #[serde(default)]
     pub trophy: Vec<Trophy>,
-    /// 该课程包含的BMS文件的MD5哈希列表
-    pub md5: Vec<String>,
+    /// （方式一）该课程包含的BMS文件的MD5哈希列表
+    #[serde(default, rename = "md5")]
+    pub md5list: Vec<String>,
+    /// （方式二）该课程包含的BMS文件的SHA256哈希列表
+    #[serde(default, rename = "sha256")]
+    pub sha256list: Vec<String>,
+    /// （方式三）使用charts字段，包含谱面数据
+    #[serde(default)]
+    pub charts: Vec<ChartItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for CourseInfo {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct CourseInfoHelper {
+            name: String,
+            #[serde(default)]
+            constraint: Vec<String>,
+            #[serde(default)]
+            trophy: Vec<Trophy>,
+            #[serde(default, rename = "md5")]
+            md5list: Vec<String>,
+            #[serde(default, rename = "sha256")]
+            sha256list: Vec<String>,
+            #[serde(default)]
+            charts: Vec<Value>,
+        }
+
+        let helper = CourseInfoHelper::deserialize(deserializer)?;
+
+        // 处理charts字段，为ChartItem的id字段设置默认值
+        let charts = helper
+            .charts
+            .into_iter()
+            .map(|chart_value| {
+                // 检查是否有id字段
+                if let Some(_) = chart_value.get("level") {
+                    // 如果id字段存在，直接反序列化
+                    serde_json::from_value(chart_value)
+                } else {
+                    // 如果id字段不存在，添加默认值0
+                    let mut chart_obj = chart_value.as_object().unwrap().clone();
+                    chart_obj.insert("level".to_string(), serde_json::Value::String("0".to_string()));
+                    let modified_chart_value = serde_json::Value::Object(chart_obj);
+                    serde_json::from_value(modified_chart_value)
+                }
+            })
+            .collect::<Result<Vec<ChartItem>, serde_json::Error>>()
+            .map_err(serde::de::Error::custom)?;
+
+        Ok(CourseInfo {
+            name: helper.name,
+            constraint: helper.constraint,
+            trophy: helper.trophy,
+            md5list: helper.md5list,
+            sha256list: helper.sha256list,
+            charts,
+        })
+    }
 }
 
 /// 奖杯信息
@@ -133,16 +193,18 @@ pub struct Trophy {
 pub struct ChartItem {
     /// 难度等级，如 "0"
     pub level: String,
-    /// 唯一标识符
-    pub id: Option<u64>,
     /// 文件的MD5哈希值
     pub md5: Option<String>,
     /// 文件的SHA256哈希值
     pub sha256: Option<String>,
     /// 歌曲标题
     pub title: Option<String>,
+    /// 歌曲副标题
+    pub subtitle: Option<String>,
     /// 艺术家名称
     pub artist: Option<String>,
+    /// 歌曲副艺术家
+    pub subartist: Option<String>,
     /// 文件下载链接
     pub url: Option<String>,
     /// 差分文件下载链接（可选）
@@ -166,7 +228,6 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
             .ok_or_else(|| serde::de::Error::missing_field("level"))?
             .to_string();
 
-        let id = value.get("id").and_then(|v| v.as_u64());
         let md5 = value
             .get("md5")
             .and_then(|v| v.as_str())
@@ -182,8 +243,18 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
+        let subtitle = value
+            .get("subtitle")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
         let artist = value
             .get("artist")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let subartist = value
+            .get("subartist")
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
@@ -203,22 +274,24 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
         if let Some(obj) = extra_data.as_object_mut() {
             // 移除已知字段，保留额外字段
             obj.remove("level");
-            obj.remove("id");
             obj.remove("md5");
             obj.remove("sha256");
             obj.remove("title");
+            obj.remove("subtitle");
             obj.remove("artist");
+            obj.remove("subartist");
             obj.remove("url");
             obj.remove("url_diff");
         }
 
         Ok(ChartItem {
             level,
-            id,
             md5,
             sha256,
             title,
+            subtitle,
             artist,
+            subartist,
             url,
             url_diff,
             extra: extra_data,
@@ -363,7 +436,7 @@ mod tests {
         assert_eq!(header.course[0][0].name, "Course 1");
     }
 
-    /// 测试BmsTableHeader反序列化，支持Vec<Vec<CourseInfo>>格式
+        /// 测试BmsTableHeader反序列化，支持Vec<Vec<CourseInfo>>格式
     #[test]
     fn test_bms_table_header_deserialize_vec_vec_course_info() {
         let json_data = r#"{
@@ -404,7 +477,7 @@ mod tests {
 
         let result: Result<BmsTableHeader, _> = serde_json::from_str(json_data);
         assert!(result.is_ok());
-
+        
         let header = result.unwrap();
         assert_eq!(header.name, "Test Table");
         assert_eq!(header.symbol, "test");
@@ -414,5 +487,55 @@ mod tests {
         assert_eq!(header.course[1].len(), 1); // 第二个课程组有1个课程
         assert_eq!(header.course[0][0].name, "Course 1");
         assert_eq!(header.course[1][0].name, "Course 2");
+    }
+
+    /// 测试CourseInfo反序列化，charts字段中ChartItem的level字段使用默认值
+    #[test]
+    fn test_course_info_deserialize_charts_with_default_level() {
+        let json_data = r#"{
+            "name": "Test Course",
+            "constraint": ["grade_mirror"],
+            "trophy": [
+                {
+                    "name": "goldmedal",
+                    "missrate": 5.0,
+                    "scorerate": 70.0
+                }
+            ],
+            "charts": [
+                {
+                    "title": "Test Song",
+                    "artist": "Test Artist",
+                    "url": "https://example.com/test.bms"
+                },
+                {
+                    "level": "1",
+                    "title": "Test Song 2",
+                    "artist": "Test Artist 2",
+                    "url": "https://example.com/test2.bms"
+                }
+            ]
+        }"#;
+
+        let result: Result<CourseInfo, _> = serde_json::from_str(json_data);
+        assert!(result.is_ok());
+        
+        let course_info = result.unwrap();
+        assert_eq!(course_info.name, "Test Course");
+        assert_eq!(course_info.constraint, vec!["grade_mirror"]);
+        assert_eq!(course_info.trophy.len(), 1);
+        assert_eq!(course_info.charts.len(), 2);
+        
+        // 第一个chart没有level字段，应该使用默认值"0"
+        let first_chart = &course_info.charts[0];
+        assert_eq!(first_chart.level, "0");
+        assert_eq!(first_chart.title, Some("Test Song".to_string()));
+        assert_eq!(first_chart.artist, Some("Test Artist".to_string()));
+        
+        // 第二个chart有level字段，应该保持原值
+        let second_chart = &course_info.charts[1];
+        assert_eq!(second_chart.level, "1");
+        assert_eq!(second_chart.title, Some("Test Song 2".to_string()));
+        assert_eq!(second_chart.artist, Some("Test Artist 2".to_string()));
     }
 }

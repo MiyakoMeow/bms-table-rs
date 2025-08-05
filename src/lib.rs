@@ -269,12 +269,11 @@ mod tests {
         assert_eq!(course.trophy[0].name, "goldmedal");
         assert_eq!(course.trophy[0].missrate, 1.0);
         assert_eq!(course.trophy[0].scorerate, 90.0);
-        assert_eq!(course.md5, vec!["test_md5_1", "test_md5_2"]);
+        assert_eq!(course.md5list, vec!["test_md5_1", "test_md5_2"]);
 
         // 测试谱面数据
         let score = &bms_table.charts[0];
         assert_eq!(score.level, "1");
-        assert_eq!(score.id, Some(1));
         assert_eq!(score.md5, Some("test_md5_1".to_string()));
         assert_eq!(score.sha256, Some("test_sha256_1".to_string()));
         assert_eq!(score.title, Some("Test Song".to_string()));
@@ -333,7 +332,6 @@ mod tests {
         let bms_table = result.unwrap();
         let score = &bms_table.charts[0];
         assert_eq!(score.level, "1");
-        assert_eq!(score.id, Some(1));
         assert_eq!(score.md5, None);
         assert_eq!(score.sha256, None);
         assert_eq!(score.title, None);

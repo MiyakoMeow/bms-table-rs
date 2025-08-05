@@ -114,7 +114,7 @@ async fn main() -> Result<()> {
         println!("  - {}", course.name);
         println!("    约束: {:?}", course.constraint);
         println!("    奖杯: {:?}", course.trophy);
-        println!("    MD5数量: {}", course.md5.len());
+        println!("    MD5数量: {}", course.md5list.len());
     }
 
     // 显示前几个谱面数据
