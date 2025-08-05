@@ -38,13 +38,11 @@ async fn main() -> Result<()> {
     // 获取命令行参数
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 2 {
-        eprintln!("使用方法: {} <URL>", args[0]);
-        eprintln!("示例: {} https://stellabms.xyz/sl/table.html", args[0]);
-        std::process::exit(1);
-    }
-
-    let url = &args[1];
+    let url = if args.len() > 1 {
+        &args[1]
+    } else {
+        "http://zris.work/bmstable/pms_upper/header.json"
+    };
 
     println!("正在获取BMS表格数据...");
     println!("URL: {}", url);

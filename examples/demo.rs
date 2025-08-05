@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
 
     // 获取命令行参数
     let args: Vec<String> = env::args().collect();
-    
+
     // 确定要使用的URL
     let base_url = if args.len() > 1 {
         &args[1]

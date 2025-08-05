@@ -47,12 +47,31 @@ impl<'de> serde::Deserialize<'de> for BmsTableHeader {
             symbol: String,
             data_url: String,
             #[serde(default)]
-            course: Vec<Vec<CourseInfo>>,
+            course: Value,
             #[serde(default)]
             level_order: Option<Vec<Value>>,
         }
 
         let helper = BmsTableHeaderHelper::deserialize(deserializer)?;
+
+        // 处理course字段，支持Vec<CourseInfo>和Vec<Vec<CourseInfo>>两种格式
+        let course = match &helper.course {
+            Value::Array(arr) if !arr.is_empty() => {
+                // 检查第一个元素是否为数组
+                if let Some(Value::Array(_)) = arr.first() {
+                    // 已经是Vec<Vec<CourseInfo>>格式
+                    serde_json::from_value(helper.course.clone())
+                        .map_err(serde::de::Error::custom)?
+                } else {
+                    // 是Vec<CourseInfo>格式，需要包装成Vec<Vec<CourseInfo>>
+                    let course_info_vec: Vec<CourseInfo> =
+                        serde_json::from_value(helper.course.clone())
+                            .map_err(serde::de::Error::custom)?;
+                    vec![course_info_vec]
+                }
+            }
+            _ => Vec::new(),
+        };
 
         // 处理level_order，将数字和字符串都转换为字符串
         let level_order = helper
@@ -70,7 +89,7 @@ impl<'de> serde::Deserialize<'de> for BmsTableHeader {
             name: helper.name,
             symbol: helper.symbol,
             data_url: helper.data_url,
-            course: helper.course,
+            course,
             level_order,
         })
     }
@@ -307,5 +326,93 @@ mod tests {
 
         let result = extract_bmstable_url(html_content).await;
         assert!(result.is_err());
+    }
+
+    /// 测试BmsTableHeader反序列化，支持Vec<CourseInfo>格式
+    #[test]
+    fn test_bms_table_header_deserialize_vec_course_info() {
+        let json_data = r#"{
+            "name": "Test Table",
+            "symbol": "test",
+            "data_url": "score.json",
+            "course": [
+                {
+                    "name": "Course 1",
+                    "constraint": ["grade_mirror"],
+                    "trophy": [
+                        {
+                            "name": "goldmedal",
+                            "missrate": 5.0,
+                            "scorerate": 70.0
+                        }
+                    ],
+                    "md5": ["abc123", "def456"]
+                }
+            ]
+        }"#;
+
+        let result: Result<BmsTableHeader, _> = serde_json::from_str(json_data);
+        assert!(result.is_ok());
+
+        let header = result.unwrap();
+        assert_eq!(header.name, "Test Table");
+        assert_eq!(header.symbol, "test");
+        assert_eq!(header.data_url, "score.json");
+        assert_eq!(header.course.len(), 1); // 外层长度为1
+        assert_eq!(header.course[0].len(), 1); // 内层有1个课程
+        assert_eq!(header.course[0][0].name, "Course 1");
+    }
+
+    /// 测试BmsTableHeader反序列化，支持Vec<Vec<CourseInfo>>格式
+    #[test]
+    fn test_bms_table_header_deserialize_vec_vec_course_info() {
+        let json_data = r#"{
+            "name": "Test Table",
+            "symbol": "test",
+            "data_url": "score.json",
+            "course": [
+                [
+                    {
+                        "name": "Course 1",
+                        "constraint": ["grade_mirror"],
+                        "trophy": [
+                            {
+                                "name": "goldmedal",
+                                "missrate": 5.0,
+                                "scorerate": 70.0
+                            }
+                        ],
+                        "md5": ["abc123", "def456"]
+                    }
+                ],
+                [
+                    {
+                        "name": "Course 2",
+                        "constraint": ["ln"],
+                        "trophy": [
+                            {
+                                "name": "silvermedal",
+                                "missrate": 10.0,
+                                "scorerate": 60.0
+                            }
+                        ],
+                        "md5": ["ghi789"]
+                    }
+                ]
+            ]
+        }"#;
+
+        let result: Result<BmsTableHeader, _> = serde_json::from_str(json_data);
+        assert!(result.is_ok());
+
+        let header = result.unwrap();
+        assert_eq!(header.name, "Test Table");
+        assert_eq!(header.symbol, "test");
+        assert_eq!(header.data_url, "score.json");
+        assert_eq!(header.course.len(), 2); // 外层有2个课程组
+        assert_eq!(header.course[0].len(), 1); // 第一个课程组有1个课程
+        assert_eq!(header.course[1].len(), 1); // 第二个课程组有1个课程
+        assert_eq!(header.course[0][0].name, "Course 1");
+        assert_eq!(header.course[1][0].name, "Course 2");
     }
 }
