@@ -85,6 +85,8 @@ pub struct ScoreItem {
     pub url: Option<String>,
     /// 差分文件下载链接（可选）
     pub url_diff: Option<String>,
+    /// 额外数据
+    pub extra: Value,
 }
 
 impl<'de> serde::Deserialize<'de> for ScoreItem {
@@ -92,38 +94,64 @@ impl<'de> serde::Deserialize<'de> for ScoreItem {
     where
         D: serde::Deserializer<'de>,
     {
-        #[derive(serde::Deserialize)]
-        struct ScoreItemHelper {
-            level: String,
-            #[serde(default)]
-            id: Option<u64>,
-            #[serde(default)]
-            md5: Option<String>,
-            #[serde(default)]
-            sha256: Option<String>,
-            #[serde(default)]
-            title: Option<String>,
-            #[serde(default)]
-            artist: Option<String>,
-            #[serde(default)]
-            url: Option<String>,
-            #[serde(default)]
-            url_diff: Option<String>,
+        // 首先将整个值解析为Value
+        let value: Value = Value::deserialize(deserializer)?;
+
+        // 提取已知字段
+        let level = value
+            .get("level")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| serde::de::Error::missing_field("level"))?
+            .to_string();
+
+        let id = value.get("id").and_then(|v| v.as_u64());
+        let md5 = value
+            .get("md5")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let sha256 = value
+            .get("sha256")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let title = value
+            .get("title")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let artist = value
+            .get("artist")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let url = value
+            .get("url")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let url_diff = value
+            .get("url_diff")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+
+        // 提取额外数据（除了已知字段之外的所有数据）
+        let mut extra_data = value.clone();
+        if let Some(obj) = extra_data.as_object_mut() {
+            // 移除已知字段，保留额外字段
+            obj.remove("level");
+            obj.remove("id");
+            obj.remove("md5");
+            obj.remove("sha256");
+            obj.remove("title");
+            obj.remove("artist");
+            obj.remove("url");
+            obj.remove("url_diff");
         }
 
-        let helper = ScoreItemHelper::deserialize(deserializer)?;
-
-        // 将空字符串转换为None
-        let id = helper.id;
-        let md5 = helper.md5.filter(|s| !s.is_empty());
-        let sha256 = helper.sha256.filter(|s| !s.is_empty());
-        let title = helper.title.filter(|s| !s.is_empty());
-        let artist = helper.artist.filter(|s| !s.is_empty());
-        let url = helper.url.filter(|s| !s.is_empty());
-        let url_diff = helper.url_diff.filter(|s| !s.is_empty());
-
         Ok(ScoreItem {
-            level: helper.level,
+            level,
             id,
             md5,
             sha256,
@@ -131,6 +159,7 @@ impl<'de> serde::Deserialize<'de> for ScoreItem {
             artist,
             url,
             url_diff,
+            extra: extra_data,
         })
     }
 }

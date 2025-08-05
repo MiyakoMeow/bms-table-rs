@@ -29,6 +29,8 @@ pub struct BmsTable {
     pub course: Vec<Vec<CourseInfo>>,
     /// 分数数据
     pub scores: Vec<ScoreItem>,
+    /// 额外数据
+    pub extra: Value,
 }
 
 /// 从URL直接获取BmsTable对象
@@ -159,8 +161,18 @@ pub async fn create_bms_table_from_json(
     header_json: Value,
     data_json: Value,
 ) -> Result<BmsTable> {
-    // 解析header JSON
-    let header: BmsTableHeader = serde_json::from_value(header_json)?;
+    // 解析header JSON，保留额外数据
+    let header: BmsTableHeader = serde_json::from_value(header_json.clone())?;
+
+    // 提取额外数据（header_json中除了BmsTableHeader字段之外的数据）
+    let mut extra_data = header_json.clone();
+    if let Some(obj) = extra_data.as_object_mut() {
+        // 移除已知字段，保留额外字段
+        obj.remove("name");
+        obj.remove("symbol");
+        obj.remove("data_url");
+        obj.remove("course");
+    }
 
     // 解析data JSON
     let scores: Vec<ScoreItem> = serde_json::from_value(data_json)?;
@@ -177,6 +189,7 @@ pub async fn create_bms_table_from_json(
         data_url: data_url_obj,
         course: header.course,
         scores,
+        extra: extra_data,
     };
 
     Ok(bms_table)
@@ -211,7 +224,9 @@ mod tests {
                         "md5": ["test_md5_1", "test_md5_2"]
                     }
                 ]
-            ]
+            ],
+            "extra_field": "extra_value",
+            "another_field": 123
         });
         let data_json = json!([
             {
@@ -222,7 +237,9 @@ mod tests {
                 "title": "Test Song",
                 "artist": "Test Artist",
                 "url": "https://example.com/test.bms",
-                "url_diff": "https://example.com/test_diff.bms"
+                "url_diff": "https://example.com/test_diff.bms",
+                "custom_field": "custom_value",
+                "rating": 5.0
             }
         ]);
 
@@ -262,6 +279,17 @@ mod tests {
             score.url_diff,
             Some("https://example.com/test_diff.bms".to_string())
         );
+
+        // 测试额外数据
+        // 检查header的额外数据
+        assert_eq!(bms_table.extra["extra_field"], "extra_value");
+        assert_eq!(bms_table.extra["another_field"], 123);
+        assert!(!bms_table.extra.get("name").is_some()); // 确保已知字段被移除
+
+        // 检查score的额外数据
+        assert_eq!(score.extra["custom_field"], "custom_value");
+        assert_eq!(score.extra["rating"], 5.0);
+        assert!(!score.extra.get("level").is_some()); // 确保已知字段被移除
     }
 
     /// 测试创建BmsTable对象时处理空字符串字段
@@ -312,6 +340,7 @@ mod tests {
             data_url: Url::parse("https://example.com/score.json").unwrap(),
             course: vec![],
             scores: vec![],
+            extra: json!({}),
         };
 
         assert_eq!(bms_table.name, "Test Table");
@@ -330,6 +359,7 @@ mod tests {
             data_url: Url::parse("https://example.com/score.json").unwrap(),
             course: vec![],
             scores: vec![],
+            extra: json!({}),
         };
 
         let table2 = BmsTable {
@@ -339,6 +369,7 @@ mod tests {
             data_url: Url::parse("https://example.com/score.json").unwrap(),
             course: vec![],
             scores: vec![],
+            extra: json!({}),
         };
 
         assert_eq!(table1, table2);
