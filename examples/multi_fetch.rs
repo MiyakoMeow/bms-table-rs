@@ -40,7 +40,7 @@
 //! ```
 
 use anyhow::Result;
-use bms_table::fetch_bms_table;
+use bms_table::{fetch_bms_table, BmsTable};
 use std::env;
 use tokio::sync::mpsc;
 
@@ -53,16 +53,22 @@ struct FetchResult {
     success: bool,
     /// 错误信息（如果失败）
     error: Option<String>,
-    /// 谱面数据数量（如果成功）
-    score_count: Option<usize>,
+    /// 难度表
+    table: Option<BmsTable>,
 }
 
 /// 处理单个难度表获取完成的事件
 fn handle_fetch_complete(result: FetchResult) {
     match result.success {
         true => {
-            let score_count = result.score_count.unwrap_or(0);
-            println!("{} 获取完成 ({} 个谱面)", result.name, score_count);
+            let table = result.table.unwrap();
+            println!(
+                "{} 获取完成 ({} 个谱面，{} 个课程组，{} 个课程)",
+                result.name,
+                table.charts.len(),
+                table.course.len(),
+                table.course.iter().flatten().count()
+            );
         }
         false => {
             let error = result.error.unwrap_or_else(|| "未知错误".to_string());
@@ -75,16 +81,16 @@ fn handle_fetch_complete(result: FetchResult) {
 async fn fetch_single_table(url: &str) -> FetchResult {
     match fetch_bms_table(url).await {
         Ok(bms_table) => FetchResult {
-            name: bms_table.name,
+            name: bms_table.name.clone(),
             success: true,
             error: None,
-            score_count: Some(bms_table.charts.len()),
+            table: Some(bms_table),
         },
         Err(e) => FetchResult {
             name: url.to_string(),
             success: false,
             error: Some(e.to_string()),
-            score_count: None,
+            table: None,
         },
     }
 }

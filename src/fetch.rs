@@ -97,7 +97,7 @@ impl<'de> serde::Deserialize<'de> for BmsTableHeader {
 
 /// 课程信息
 ///
-/// 定义了一个BMS课程的所有相关信息，包括约束条件、奖杯要求和MD5哈希列表。
+/// 定义了一个BMS课程的所有相关信息，包括约束条件、奖杯要求和谱面数据。
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct CourseInfo {
     /// 课程名称，如 "Satellite Skill Analyzer 2nd sl0"
@@ -108,13 +108,7 @@ pub struct CourseInfo {
     /// 奖杯信息列表，定义不同等级的奖杯要求
     #[serde(default)]
     pub trophy: Vec<Trophy>,
-    /// （方式一）该课程包含的BMS文件的MD5哈希列表
-    #[serde(default, rename = "md5")]
-    pub md5list: Vec<String>,
-    /// （方式二）该课程包含的BMS文件的SHA256哈希列表
-    #[serde(default, rename = "sha256")]
-    pub sha256list: Vec<String>,
-    /// （方式三）使用charts字段，包含谱面数据
+    /// 谱面数据列表，包含该课程的所有谱面信息
     #[serde(default)]
     pub charts: Vec<ChartItem>,
 }
@@ -141,19 +135,22 @@ impl<'de> serde::Deserialize<'de> for CourseInfo {
 
         let helper = CourseInfoHelper::deserialize(deserializer)?;
 
-        // 处理charts字段，为ChartItem的id字段设置默认值
-        let charts = helper
+        // 处理charts字段，为ChartItem的level字段设置默认值
+        let mut charts = helper
             .charts
             .into_iter()
             .map(|chart_value| {
-                // 检查是否有id字段
+                // 检查是否有level字段
                 if let Some(_) = chart_value.get("level") {
-                    // 如果id字段存在，直接反序列化
+                    // 如果level字段存在，直接反序列化
                     serde_json::from_value(chart_value)
                 } else {
-                    // 如果id字段不存在，添加默认值0
+                    // 如果level字段不存在，添加默认值0
                     let mut chart_obj = chart_value.as_object().unwrap().clone();
-                    chart_obj.insert("level".to_string(), serde_json::Value::String("0".to_string()));
+                    chart_obj.insert(
+                        "level".to_string(),
+                        serde_json::Value::String("0".to_string()),
+                    );
                     let modified_chart_value = serde_json::Value::Object(chart_obj);
                     serde_json::from_value(modified_chart_value)
                 }
@@ -161,12 +158,42 @@ impl<'de> serde::Deserialize<'de> for CourseInfo {
             .collect::<Result<Vec<ChartItem>, serde_json::Error>>()
             .map_err(serde::de::Error::custom)?;
 
+        // 将md5list转换为charts
+        for md5 in &helper.md5list {
+            charts.push(ChartItem {
+                level: "0".to_string(),
+                md5: Some(md5.clone()),
+                sha256: None,
+                title: None,
+                subtitle: None,
+                artist: None,
+                subartist: None,
+                url: None,
+                url_diff: None,
+                extra: serde_json::Value::Object(serde_json::Map::new()),
+            });
+        }
+
+        // 将sha256list转换为charts
+        for sha256 in &helper.sha256list {
+            charts.push(ChartItem {
+                level: "0".to_string(),
+                md5: None,
+                sha256: Some(sha256.clone()),
+                title: None,
+                subtitle: None,
+                artist: None,
+                subartist: None,
+                url: None,
+                url_diff: None,
+                extra: serde_json::Value::Object(serde_json::Map::new()),
+            });
+        }
+
         Ok(CourseInfo {
             name: helper.name,
             constraint: helper.constraint,
             trophy: helper.trophy,
-            md5list: helper.md5list,
-            sha256list: helper.sha256list,
             charts,
         })
     }
@@ -434,9 +461,15 @@ mod tests {
         assert_eq!(header.course.len(), 1); // 外层长度为1
         assert_eq!(header.course[0].len(), 1); // 内层有1个课程
         assert_eq!(header.course[0][0].name, "Course 1");
+
+        // 验证md5list被转换为charts
+        let course = &header.course[0][0];
+        assert_eq!(course.charts.len(), 2); // 两个md5值转换为两个charts
+        assert_eq!(course.charts[0].md5, Some("abc123".to_string()));
+        assert_eq!(course.charts[1].md5, Some("def456".to_string()));
     }
 
-        /// 测试BmsTableHeader反序列化，支持Vec<Vec<CourseInfo>>格式
+    /// 测试BmsTableHeader反序列化，支持Vec<Vec<CourseInfo>>格式
     #[test]
     fn test_bms_table_header_deserialize_vec_vec_course_info() {
         let json_data = r#"{
@@ -477,7 +510,7 @@ mod tests {
 
         let result: Result<BmsTableHeader, _> = serde_json::from_str(json_data);
         assert!(result.is_ok());
-        
+
         let header = result.unwrap();
         assert_eq!(header.name, "Test Table");
         assert_eq!(header.symbol, "test");
@@ -487,6 +520,16 @@ mod tests {
         assert_eq!(header.course[1].len(), 1); // 第二个课程组有1个课程
         assert_eq!(header.course[0][0].name, "Course 1");
         assert_eq!(header.course[1][0].name, "Course 2");
+
+        // 验证md5list被转换为charts
+        let course1 = &header.course[0][0];
+        assert_eq!(course1.charts.len(), 2); // 两个md5值转换为两个charts
+        assert_eq!(course1.charts[0].md5, Some("abc123".to_string()));
+        assert_eq!(course1.charts[1].md5, Some("def456".to_string()));
+
+        let course2 = &header.course[1][0];
+        assert_eq!(course2.charts.len(), 1); // 一个md5值转换为一个chart
+        assert_eq!(course2.charts[0].md5, Some("ghi789".to_string()));
     }
 
     /// 测试CourseInfo反序列化，charts字段中ChartItem的level字段使用默认值
@@ -519,23 +562,117 @@ mod tests {
 
         let result: Result<CourseInfo, _> = serde_json::from_str(json_data);
         assert!(result.is_ok());
-        
+
         let course_info = result.unwrap();
         assert_eq!(course_info.name, "Test Course");
         assert_eq!(course_info.constraint, vec!["grade_mirror"]);
         assert_eq!(course_info.trophy.len(), 1);
         assert_eq!(course_info.charts.len(), 2);
-        
+
         // 第一个chart没有level字段，应该使用默认值"0"
         let first_chart = &course_info.charts[0];
         assert_eq!(first_chart.level, "0");
         assert_eq!(first_chart.title, Some("Test Song".to_string()));
         assert_eq!(first_chart.artist, Some("Test Artist".to_string()));
-        
+
         // 第二个chart有level字段，应该保持原值
         let second_chart = &course_info.charts[1];
         assert_eq!(second_chart.level, "1");
         assert_eq!(second_chart.title, Some("Test Song 2".to_string()));
         assert_eq!(second_chart.artist, Some("Test Artist 2".to_string()));
+    }
+
+    /// 测试CourseInfo反序列化，sha256list转换为charts
+    #[test]
+    fn test_course_info_deserialize_sha256list_to_charts() {
+        let json_data = r#"{
+            "name": "Test Course",
+            "constraint": ["grade_mirror"],
+            "trophy": [
+                {
+                    "name": "goldmedal",
+                    "missrate": 5.0,
+                    "scorerate": 70.0
+                }
+            ],
+            "sha256": ["sha256_hash_1", "sha256_hash_2"]
+        }"#;
+
+        let result: Result<CourseInfo, _> = serde_json::from_str(json_data);
+        assert!(result.is_ok());
+
+        let course_info = result.unwrap();
+        assert_eq!(course_info.name, "Test Course");
+        assert_eq!(course_info.constraint, vec!["grade_mirror"]);
+        assert_eq!(course_info.trophy.len(), 1);
+        assert_eq!(course_info.charts.len(), 2); // 两个sha256值转换为两个charts
+
+        // 验证sha256list被转换为charts
+        assert_eq!(
+            course_info.charts[0].sha256,
+            Some("sha256_hash_1".to_string())
+        );
+        assert_eq!(
+            course_info.charts[1].sha256,
+            Some("sha256_hash_2".to_string())
+        );
+        assert_eq!(course_info.charts[0].md5, None);
+        assert_eq!(course_info.charts[1].md5, None);
+    }
+
+    /// 测试CourseInfo反序列化，同时包含md5list和sha256list
+    #[test]
+    fn test_course_info_deserialize_md5_and_sha256_to_charts() {
+        let json_data = r#"{
+            "name": "Test Course",
+            "constraint": ["grade_mirror"],
+            "trophy": [
+                {
+                    "name": "goldmedal",
+                    "missrate": 5.0,
+                    "scorerate": 70.0
+                }
+            ],
+            "md5": ["md5_hash_1"],
+            "sha256": ["sha256_hash_1"],
+            "charts": [
+                {
+                    "level": "2",
+                    "title": "Existing Chart",
+                    "artist": "Test Artist"
+                }
+            ]
+        }"#;
+
+        let result: Result<CourseInfo, _> = serde_json::from_str(json_data);
+        assert!(result.is_ok());
+
+        let course_info = result.unwrap();
+        assert_eq!(course_info.name, "Test Course");
+        assert_eq!(course_info.constraint, vec!["grade_mirror"]);
+        assert_eq!(course_info.trophy.len(), 1);
+        assert_eq!(course_info.charts.len(), 3); // 1个现有chart + 1个md5 + 1个sha256
+
+        // 验证现有chart保持不变
+        assert_eq!(course_info.charts[0].level, "2");
+        assert_eq!(
+            course_info.charts[0].title,
+            Some("Existing Chart".to_string())
+        );
+        assert_eq!(
+            course_info.charts[0].artist,
+            Some("Test Artist".to_string())
+        );
+
+        // 验证md5转换的chart
+        assert_eq!(course_info.charts[1].md5, Some("md5_hash_1".to_string()));
+        assert_eq!(course_info.charts[1].level, "0");
+
+        // 验证sha256转换的chart
+        assert_eq!(
+            course_info.charts[2].sha256,
+            Some("sha256_hash_1".to_string())
+        );
+        assert_eq!(course_info.charts[2].level, "0");
     }
 }

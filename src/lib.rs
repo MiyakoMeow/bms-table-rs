@@ -269,7 +269,9 @@ mod tests {
         assert_eq!(course.trophy[0].name, "goldmedal");
         assert_eq!(course.trophy[0].missrate, 1.0);
         assert_eq!(course.trophy[0].scorerate, 90.0);
-        assert_eq!(course.md5list, vec!["test_md5_1", "test_md5_2"]);
+        assert_eq!(course.charts.len(), 2);
+        assert_eq!(course.charts[0].md5, Some("test_md5_1".to_string()));
+        assert_eq!(course.charts[1].md5, Some("test_md5_2".to_string()));
 
         // 测试谱面数据
         let score = &bms_table.charts[0];
