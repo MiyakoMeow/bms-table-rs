@@ -35,7 +35,7 @@ bms-table/
 - `header_url`: 表格头文件URL
 - `data_url`: 谱面数据文件URL
 - `course`: 课程信息数组
-- `scores`: 谱面数据数组
+- `charts`: 谱面数据数组
 
 ### BmsTableHeader
 BMS表格的头信息，包含：
@@ -49,18 +49,20 @@ BMS表格的头信息，包含：
 - `name`: 课程名称
 - `constraint`: 约束条件
 - `trophy`: 奖杯信息
-- `md5`: MD5哈希列表
+- `charts`: 谱面数据列表（包含该课程的所有谱面信息）
 
-### ScoreItem
+### ChartItem
 谱面数据项，包含：
 - `level`: 难度等级
-- `id`: 唯一标识符（可选）
 - `md5`: MD5哈希（可选）
 - `sha256`: SHA256哈希（可选）
 - `title`: 歌曲标题（可选）
+- `subtitle`: 歌曲副标题（可选）
 - `artist`: 艺术家（可选）
+- `subartist`: 副艺术家（可选）
 - `url`: 下载链接（可选）
 - `url_diff`: 差分文件链接（可选）
+- `extra`: 额外数据
 
 ## 使用方法
 
@@ -80,7 +82,7 @@ async fn main() -> Result<()> {
     let bms_table = fetch_bms_table(base_url).await?;
     
     println!("表格名称: {}", bms_table.name);
-    println!("谱面数据数量: {}", bms_table.scores.len());
+    println!("谱面数据数量: {}", bms_table.charts.len());
     
     Ok(())
 }
@@ -179,11 +181,11 @@ URL: https://stellabms.xyz/sl/table.html
   - Satellite Skill Analyzer 2nd sl0
     约束: ["grade_mirror", "gauge_lr2", "ln"]
     奖杯: [Trophy { name: "silvermedal", missrate: 5.0, scorerate: 70.0 }, Trophy { name: "goldmedal", missrate: 2.5, scorerate: 85.0 }]
-    MD5数量: 4
+    谱面数量: 4
   - Satellite Skill Analyzer 2nd sl1
     约束: ["grade_mirror", "gauge_lr2", "ln"]
     奖杯: [Trophy { name: "silvermedal", missrate: 5.0, scorerate: 70.0 }, Trophy { name: "goldmedal", missrate: 2.5, scorerate: 85.0 }]
-    MD5数量: 4
+    谱面数量: 4
   ... (更多课程)
 
 📊 谱面数据 (前5个):
@@ -204,10 +206,16 @@ URL: https://stellabms.xyz/sl/table.html
 ## 特性说明
 
 ### 空字符串处理
-ScoreItem中的可选字段在解析时会自动将空字符串转换为None，确保数据的准确性。
+ChartItem中的可选字段在解析时会自动将空字符串转换为None，确保数据的准确性。
 
 ### 异步支持
 所有API都是异步的，支持高效的并发操作。
+
+### 数据转换
+CourseInfo结构体支持多种数据格式的自动转换：
+- 如果JSON中包含 `md5` 字段（MD5哈希列表），会自动转换为 `charts` 中的 `ChartItem`
+- 如果JSON中包含 `sha256` 字段（SHA256哈希列表），会自动转换为 `charts` 中的 `ChartItem`
+- 转换后的 `ChartItem` 使用默认的 `level: "0"`，其他字段为 `None`
 
 ### 错误处理
 使用anyhow进行统一的错误处理，提供清晰的错误信息。
