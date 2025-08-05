@@ -7,7 +7,7 @@
 //!
 //! - 从BMS表格网站获取数据
 //! - 解析表格头信息和课程配置
-//! - 显示分数数据和歌曲信息
+//! - 显示谱面数据和歌曲信息
 //! - 演示数据查找功能
 //!
 //! # 运行方式
@@ -37,7 +37,7 @@
 //!   符号: sl
 //!   数据URL: score.json
 //!   课程数量: 1
-//!   分数数据数量: 4
+//!   谱面数据数量: 4
 //!
 //! 🎵 课程信息:
 //!   - Satellite Skill Analyzer 2nd sl0
@@ -45,7 +45,7 @@
 //!     奖杯: [Trophy { name: "silvermedal", missrate: 5.0, scorerate: 70.0 }]
 //!     MD5数量: 4
 //!
-//! 📊 分数数据 (前5个):
+//! 📊 谱面数据 (前5个):
 //!   1. "Fresco" [ANOTHER] - Lemi. obj:69 de 74
 //!      MD5: 176c2b2db4efd66cf186caae7923d477
 //!      URL: https://venue.bmssearch.net/bmsshuin3/75
@@ -106,7 +106,7 @@ async fn main() -> Result<()> {
     println!("  符号: {}", bms_table.symbol);
     println!("  数据URL: {}", bms_table.data_url);
     println!("  课程数量: {}", bms_table.course.len());
-    println!("  分数数据数量: {}", bms_table.scores.len());
+    println!("  谱面数据数量: {}", bms_table.charts.len());
 
     // 显示课程信息
     println!("\n🎵 课程信息:");
@@ -117,9 +117,9 @@ async fn main() -> Result<()> {
         println!("    MD5数量: {}", course.md5.len());
     }
 
-    // 显示前几个分数数据
-    println!("\n📊 分数数据 (前5个):");
-    for (i, score) in bms_table.scores.iter().take(5).enumerate() {
+    // 显示前几个谱面数据
+    println!("\n📊 谱面数据 (前5个):");
+    for (i, score) in bms_table.charts.iter().take(5).enumerate() {
         println!(
             "  {}. {} - {}",
             i + 1,
@@ -137,10 +137,10 @@ async fn main() -> Result<()> {
     }
 
     // 演示查找功能
-    if let Some(first_score) = bms_table.scores.first() {
+    if let Some(first_score) = bms_table.charts.first() {
         println!("\n🔍 演示查找功能:");
         if let Some(found) = bms_table
-            .scores
+            .charts
             .iter()
             .find(|score| score.md5 == first_score.md5)
         {
@@ -152,7 +152,7 @@ async fn main() -> Result<()> {
         }
 
         if let Some(found) = bms_table
-            .scores
+            .charts
             .iter()
             .find(|score| score.sha256 == first_score.sha256)
         {

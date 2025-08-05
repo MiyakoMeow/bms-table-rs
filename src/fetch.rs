@@ -1,13 +1,13 @@
 //! BMS表格数据获取模块
 //!
 //! 这个模块提供了从BMS表格网站获取和解析数据的功能。
-//! 支持从HTML页面提取bmstable字段，解析JSON格式的表格头信息和分数数据。
+//! 支持从HTML页面提取bmstable字段，解析JSON格式的表格头信息和谱面数据。
 //!
 //! # 主要功能
 //!
 //! - 从HTML页面中提取bmstable字段指向的JSON文件URL
 //! - 解析BMS表格头信息（包含课程、奖杯等元数据）
-//! - 获取和解析分数数据（包含歌曲信息、下载链接等）
+//! - 获取和解析谱面数据（包含歌曲信息、下载链接等）
 //! - 完整的BMS表格数据获取流程
 
 use anyhow::Result;
@@ -26,7 +26,7 @@ pub struct BmsTableHeader {
     pub name: String,
     /// 表格符号，如 "sl"
     pub symbol: String,
-    /// 分数数据文件的相对URL，如 "score.json"
+    /// 谱面数据文件的相对URL，如 "score.json"
     pub data_url: String,
     /// 课程信息数组，每个元素是一个课程组的数组
     #[serde(default)]
@@ -114,7 +114,7 @@ pub struct CourseInfo {
 
 /// 奖杯信息
 ///
-/// 定义了获得特定奖杯需要达到的分数要求。
+/// 定义了获得特定奖杯需要达到的谱面要求。
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Trophy {
     /// 奖杯名称，如 "silvermedal" 或 "goldmedal"
@@ -125,12 +125,12 @@ pub struct Trophy {
     pub scorerate: f64,
 }
 
-/// 分数数据项
+/// 谱面数据项
 ///
-/// 表示一个BMS文件的分数数据，包含文件信息和下载链接。
+/// 表示一个BMS文件的谱面数据，包含文件信息和下载链接。
 /// 所有字段都是可选的，因为不同的BMS表格可能有不同的字段。
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct ScoreItem {
+pub struct ChartItem {
     /// 难度等级，如 "0"
     pub level: String,
     /// 唯一标识符
@@ -151,7 +151,7 @@ pub struct ScoreItem {
     pub extra: Value,
 }
 
-impl<'de> serde::Deserialize<'de> for ScoreItem {
+impl<'de> serde::Deserialize<'de> for ChartItem {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -212,7 +212,7 @@ impl<'de> serde::Deserialize<'de> for ScoreItem {
             obj.remove("url_diff");
         }
 
-        Ok(ScoreItem {
+        Ok(ChartItem {
             level,
             id,
             md5,

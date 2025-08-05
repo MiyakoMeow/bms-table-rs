@@ -6,8 +6,8 @@
 
 - 🔍 从HTML页面中提取bmstable字段
 - 📊 解析BMS表格头信息JSON
-- 🎵 获取和解析分数数据
-- 🔎 支持通过MD5和SHA256查找分数数据
+- 🎵 获取和解析谱面数据
+- 🔎 支持通过MD5和SHA256查找谱面数据
 - 📋 课程信息管理和查询
 - 🏆 奖杯信息解析
 - 🚀 提供多种异步API接口
@@ -33,15 +33,15 @@ bms-table/
 - `name`: 表格名称
 - `symbol`: 表格符号
 - `header_url`: 表格头文件URL
-- `data_url`: 分数数据文件URL
+- `data_url`: 谱面数据文件URL
 - `course`: 课程信息数组
-- `scores`: 分数数据数组
+- `scores`: 谱面数据数组
 
 ### BmsTableHeader
 BMS表格的头信息，包含：
 - `name`: 表格名称
 - `symbol`: 表格符号
-- `data_url`: 分数数据文件URL
+- `data_url`: 谱面数据文件URL
 - `course`: 课程信息数组
 
 ### CourseInfo
@@ -52,7 +52,7 @@ BMS表格的头信息，包含：
 - `md5`: MD5哈希列表
 
 ### ScoreItem
-分数数据项，包含：
+谱面数据项，包含：
 - `level`: 难度等级
 - `id`: 唯一标识符（可选）
 - `md5`: MD5哈希（可选）
@@ -80,7 +80,7 @@ async fn main() -> Result<()> {
     let bms_table = fetch_bms_table(base_url).await?;
     
     println!("表格名称: {}", bms_table.name);
-    println!("分数数据数量: {}", bms_table.scores.len());
+    println!("谱面数据数量: {}", bms_table.scores.len());
     
     Ok(())
 }
@@ -173,7 +173,7 @@ URL: https://stellabms.xyz/sl/table.html
   符号: sl
   数据URL: score.json
   课程数量: 13
-  分数数据数量: 1986
+  谱面数据数量: 1986
 
 🎵 课程信息:
   - Satellite Skill Analyzer 2nd sl0
@@ -186,7 +186,7 @@ URL: https://stellabms.xyz/sl/table.html
     MD5数量: 4
   ... (更多课程)
 
-📊 分数数据 (前5个):
+📊 谱面数据 (前5个):
   1. "Fresco" [ANOTHER] - Lemi. obj:69 de 74
      MD5: 176c2b2db4efd66cf186caae7923d477
      URL: https://venue.bmssearch.net/bmsshuin3/75

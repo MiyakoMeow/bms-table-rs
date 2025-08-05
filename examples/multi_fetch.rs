@@ -53,7 +53,7 @@ struct FetchResult {
     success: bool,
     /// 错误信息（如果失败）
     error: Option<String>,
-    /// 分数数据数量（如果成功）
+    /// 谱面数据数量（如果成功）
     score_count: Option<usize>,
 }
 
@@ -62,7 +62,7 @@ fn handle_fetch_complete(result: FetchResult) {
     match result.success {
         true => {
             let score_count = result.score_count.unwrap_or(0);
-            println!("{} 获取完成 ({} 个分数)", result.name, score_count);
+            println!("{} 获取完成 ({} 个谱面)", result.name, score_count);
         }
         false => {
             let error = result.error.unwrap_or_else(|| "未知错误".to_string());
@@ -78,7 +78,7 @@ async fn fetch_single_table(url: &str) -> FetchResult {
             name: bms_table.name,
             success: true,
             error: None,
-            score_count: Some(bms_table.scores.len()),
+            score_count: Some(bms_table.charts.len()),
         },
         Err(e) => FetchResult {
             name: url.to_string(),
@@ -168,4 +168,4 @@ async fn main() -> Result<()> {
     println!("  事件处理: 实时触发");
 
     Ok(())
-} 
+}

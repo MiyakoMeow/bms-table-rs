@@ -11,7 +11,7 @@ use serde_json::Value;
 use url::Url;
 
 use crate::fetch::{
-    extract_bmstable_url, fetch_data_json, is_json_content, BmsTableHeader, CourseInfo, ScoreItem,
+    extract_bmstable_url, fetch_data_json, is_json_content, BmsTableHeader, ChartItem, CourseInfo,
 };
 
 /// BMS难度表数据，看这一个就够了
@@ -23,12 +23,12 @@ pub struct BmsTable {
     pub symbol: String,
     /// 表格头文件的相对URL，如 "header.json"
     pub header_url: Url,
-    /// 分数数据文件的相对URL，如 "score.json"
+    /// 谱面数据文件的相对URL，如 "score.json"
     pub data_url: Url,
     /// 课程信息数组，每个元素是一个课程组的数组
     pub course: Vec<Vec<CourseInfo>>,
-    /// 分数数据
-    pub scores: Vec<ScoreItem>,
+    /// 谱面数据
+    pub charts: Vec<ChartItem>,
     /// 难度等级顺序，包含数字和字符串
     pub level_order: Vec<String>,
     /// 额外数据
@@ -58,7 +58,7 @@ pub struct BmsTable {
 /// async fn main() -> anyhow::Result<()> {
 ///     let bms_table = fetch_bms_table("https://example.com/table.html").await?;
 ///     println!("表格名称: {}", bms_table.name);
-///     println!("分数数据数量: {}", bms_table.scores.len());
+///     println!("谱面数据数量: {}", bms_table.charts.len());
 ///     Ok(())
 /// }
 /// ```
@@ -178,7 +178,7 @@ pub async fn create_bms_table_from_json(
     }
 
     // 解析data JSON
-    let scores: Vec<ScoreItem> = serde_json::from_value(data_json)?;
+    let charts: Vec<ChartItem> = serde_json::from_value(data_json)?;
 
     // 构建URL对象
     let header_url_obj = Url::parse(header_url)?;
@@ -191,7 +191,7 @@ pub async fn create_bms_table_from_json(
         header_url: header_url_obj,
         data_url: data_url_obj,
         course: header.course,
-        scores,
+        charts,
         level_order: header.level_order,
         extra: extra_data,
     };
@@ -212,7 +212,7 @@ mod tests {
         let header_json = json!({
             "name": "Test Table",
             "symbol": "test",
-            "data_url": "score.json",
+            "data_url": "charts.json",
             "course": [
                 [
                     {
@@ -256,10 +256,10 @@ mod tests {
         assert_eq!(bms_table.symbol, "test");
         assert_eq!(
             bms_table.data_url.as_str(),
-            "https://example.com/score.json"
+            "https://example.com/charts.json"
         );
         assert_eq!(bms_table.course.len(), 1);
-        assert_eq!(bms_table.scores.len(), 1);
+        assert_eq!(bms_table.charts.len(), 1);
 
         // 测试课程信息
         let course = &bms_table.course[0][0];
@@ -271,8 +271,8 @@ mod tests {
         assert_eq!(course.trophy[0].scorerate, 90.0);
         assert_eq!(course.md5, vec!["test_md5_1", "test_md5_2"]);
 
-        // 测试分数数据
-        let score = &bms_table.scores[0];
+        // 测试谱面数据
+        let score = &bms_table.charts[0];
         assert_eq!(score.level, "1");
         assert_eq!(score.id, Some(1));
         assert_eq!(score.md5, Some("test_md5_1".to_string()));
@@ -311,7 +311,7 @@ mod tests {
         let header_json = json!({
             "name": "Test Table",
             "symbol": "test",
-            "data_url": "score.json",
+            "data_url": "charts.json",
             "course": []
         });
         let data_json = json!([
@@ -331,7 +331,7 @@ mod tests {
         assert!(result.is_ok());
 
         let bms_table = result.unwrap();
-        let score = &bms_table.scores[0];
+        let score = &bms_table.charts[0];
         assert_eq!(score.level, "1");
         assert_eq!(score.id, Some(1));
         assert_eq!(score.md5, None);
@@ -349,9 +349,9 @@ mod tests {
             name: "Test Table".to_string(),
             symbol: "test".to_string(),
             header_url: Url::parse("https://example.com/header.json").unwrap(),
-            data_url: Url::parse("https://example.com/score.json").unwrap(),
+            data_url: Url::parse("https://example.com/charts.json").unwrap(),
             course: vec![],
-            scores: vec![],
+            charts: vec![],
             level_order: vec!["0".to_string(), "1".to_string()],
             extra: json!({}),
         };
@@ -359,7 +359,7 @@ mod tests {
         assert_eq!(bms_table.name, "Test Table");
         assert_eq!(bms_table.symbol, "test");
         assert_eq!(bms_table.course.len(), 0);
-        assert_eq!(bms_table.scores.len(), 0);
+        assert_eq!(bms_table.charts.len(), 0);
         assert_eq!(bms_table.level_order.len(), 2);
     }
 
@@ -370,9 +370,9 @@ mod tests {
             name: "Test Table".to_string(),
             symbol: "test".to_string(),
             header_url: Url::parse("https://example.com/header.json").unwrap(),
-            data_url: Url::parse("https://example.com/score.json").unwrap(),
+            data_url: Url::parse("https://example.com/charts.json").unwrap(),
             course: vec![],
-            scores: vec![],
+            charts: vec![],
             level_order: vec!["0".to_string(), "1".to_string()],
             extra: json!({}),
         };
@@ -381,9 +381,9 @@ mod tests {
             name: "Test Table".to_string(),
             symbol: "test".to_string(),
             header_url: Url::parse("https://example.com/header.json").unwrap(),
-            data_url: Url::parse("https://example.com/score.json").unwrap(),
+            data_url: Url::parse("https://example.com/charts.json").unwrap(),
             course: vec![],
-            scores: vec![],
+            charts: vec![],
             level_order: vec!["0".to_string(), "1".to_string()],
             extra: json!({}),
         };
@@ -398,7 +398,7 @@ mod tests {
         let header_json = json!({
             "name": "Test Table",
             "symbol": "test",
-            "data_url": "score.json"
+            "data_url": "charts.json"
             // 缺少必要的字段
         });
         let data_json = json!([
@@ -420,7 +420,7 @@ mod tests {
         let header_json = json!({
             "name": "Test Table",
             "symbol": "test",
-            "data_url": "score.json",
+            "data_url": "charts.json",
             "course": []
         });
         let data_json = json!([]);
@@ -461,7 +461,7 @@ mod tests {
         let header = BmsTableHeader {
             name: "Test Table".to_string(),
             symbol: "test".to_string(),
-            data_url: "score.json".to_string(),
+            data_url: "charts.json".to_string(),
             course: vec![],
             level_order: vec!["0".to_string(), "1".to_string(), "!i".to_string()],
         };
