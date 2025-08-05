@@ -119,9 +119,30 @@ async fn main() -> Result<()> {
         args[1..].to_vec()
     } else {
         vec![
-            "https://stellabms.xyz/sl/table.html".to_string(),
-            "https://stellabms.xyz/dp/table.html".to_string(),
+            "https://stellabms.xyz/sl/table.html",
+            "https://stellabms.xyz/dp/table.html",
+            "http://zris.work/bmstable/normal/normal_header.json",
+            "http://zris.work/bmstable/insane/insane_header.json",
+            "http://zris.work/bmstable/overjoy/header.json",
+            "http://zris.work/bmstable/normal2/header.json",
+            "http://zris.work/bmstable/insane2/insane_header.json",
+            "http://zris.work/bmstable/insane_easy/header_json.json",
+            "http://zris.work/bmstable/insane_normal/header_json.json",
+            "http://zris.work/bmstable/insane_hard/header_json.json",
+            "http://zris.work/bmstable/insane_fc/header_json.json",
+            "http://zris.work/bmstable/stellalite/Stellalite-header.json",
+            "http://zris.work/bmstable/homage/header.json",
+            "http://zris.work/bmstable/dp_normal/dpn_header.json",
+            "http://zris.work/bmstable/pms_normal/pmsdatabase_header.json",
+            "http://zris.work/bmstable/pms_course/course_header.json",
+            "http://zris.work/bmstable/pms_insane/insane_pmsdatabase_header.json",
+            "http://zris.work/bmstable/pms_upper/header.json",
+            "http://zris.work/bmstable/10k/head.json",
         ]
+        .into_iter()
+        .filter(|url| !url.is_empty())
+        .map(ToString::to_string)
+        .collect()
     };
 
     // 显示正在获取数据的信息
