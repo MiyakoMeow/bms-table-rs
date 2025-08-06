@@ -10,11 +10,10 @@
 //! - 获取和解析谱面数据（包含歌曲信息、下载链接等）
 //! - 完整的BMS表格数据获取流程
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use url::Url;
 
 /// BMS表格头信息
 ///
@@ -326,12 +325,12 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
 }
 
 /// 从HTML页面内容中，提取bmstable字段指向的JSON文件URL
-pub async fn extract_bmstable_url(html_content: &str) -> Result<String> {
+pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
     let document = Html::parse_document(html_content);
 
     // 查找所有meta标签
     let Ok(meta_selector) = Selector::parse("meta") else {
-        return Err(anyhow::anyhow!("未找到meta标签"));
+        return Err(anyhow!("未找到meta标签"));
     };
 
     for element in document.select(&meta_selector) {
@@ -348,41 +347,13 @@ pub async fn extract_bmstable_url(html_content: &str) -> Result<String> {
         }
     }
 
-    Err(anyhow::anyhow!("未找到bmstable字段"))
+    Err(anyhow!("未找到bmstable字段"))
 }
 
 /// 判断内容是否为JSON格式
 #[allow(dead_code)]
 pub(super) fn is_json_content(content: &str) -> bool {
     content.trim().starts_with('{') || content.trim().starts_with('[')
-}
-
-/// 从header JSON和base URL获取data JSON
-///
-/// # 参数
-///
-/// * `header_json` - header的JSON解析树
-/// * `base_url` - 基础URL，用于构建data文件的完整URL
-///
-/// # 返回值
-///
-/// 返回data的JSON解析树
-///
-/// # 错误
-///
-/// 如果无法获取data文件或解析失败，将返回错误
-#[allow(dead_code)]
-pub(super) async fn fetch_data_json(header_json: &Value, base_url: &str) -> Result<Value> {
-    let header: BmsTableHeader = serde_json::from_value(header_json.clone())?;
-    let base_url_obj = Url::parse(base_url)?;
-    let data_url = base_url_obj.join(&header.data_url)?;
-    let data_url_str = data_url.as_str();
-
-    let data_response = reqwest::Client::new().get(data_url_str).send().await?;
-    let data_json_content = data_response.text().await?;
-    let data_json: Value = serde_json::from_str(&data_json_content)?;
-
-    Ok(data_json)
 }
 
 #[cfg(test)]
@@ -405,7 +376,7 @@ mod tests {
         </html>
         "#;
 
-        let result = extract_bmstable_url(html_content).await;
+        let result = extract_bmstable_url(html_content);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "header.json");
     }
@@ -425,7 +396,7 @@ mod tests {
         </html>
         "#;
 
-        let result = extract_bmstable_url(html_content).await;
+        let result = extract_bmstable_url(html_content);
         assert!(result.is_err());
     }
 

@@ -5,14 +5,12 @@
 
 mod fetch;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use reqwest::Client;
 use serde_json::Value;
 use url::Url;
 
-use crate::fetch::{
-    extract_bmstable_url, fetch_data_json, is_json_content, BmsTableHeader, ChartItem, CourseInfo,
-};
+use fetch::{extract_bmstable_url, BmsTableHeader, ChartItem, CourseInfo};
 
 /// BMS难度表数据，看这一个就够了
 #[derive(Debug, Clone, PartialEq)]
@@ -32,7 +30,7 @@ pub struct BmsTable {
     /// 难度等级顺序，包含数字和字符串
     pub level_order: Vec<String>,
     /// 额外数据
-    pub extra: Value,
+    pub extra: serde_json::Value,
 }
 
 /// 从URL直接获取BmsTable对象
@@ -62,61 +60,78 @@ pub struct BmsTable {
 ///     Ok(())
 /// }
 /// ```
-pub async fn fetch_bms_table(url: &str) -> Result<BmsTable> {
-    let (header_url, header_json, data_json) = fetch_table_json_data(url).await?;
-    create_bms_table_from_json(&header_url, header_json, data_json).await
+pub async fn fetch_bms_table(web_url: &str) -> Result<BmsTable> {
+    let web_url = Url::parse(web_url)?;
+    let web_response = Client::new()
+        .get(web_url.clone())
+        .send()
+        .await
+        .map_err(|e| anyhow!("When fetching web: {e}"))?
+        .text()
+        .await
+        .map_err(|e| anyhow!("When parsing web response: {e}"))?;
+    let (header_url, header_json) = match get_web_header_json_value(&web_response)? {
+        HeaderQueryContent::Url(header_url_string) => {
+            let header_url = web_url.join(&header_url_string)?;
+            let header_response = Client::new()
+                .get(header_url.clone())
+                .send()
+                .await
+                .map_err(|e| anyhow!("When fetching header: {e}"))?;
+            let header_response_string = header_response
+                .text()
+                .await
+                .map_err(|e| anyhow!("When parsing header response: {e}"))?;
+            let HeaderQueryContent::Json(header_json) =
+                get_web_header_json_value(&header_response_string)?
+            else {
+                return Err(anyhow!(
+                    "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
+                ));
+            };
+            (header_url, header_json)
+        }
+        HeaderQueryContent::Json(value) => (web_url, value),
+    };
+    let data_url_str = header_json
+        .get("data_url")
+        .ok_or(anyhow!("\"data_url\" not found in header json!"))?
+        .as_str()
+        .ok_or(anyhow!("\"data_url\" is not a string!"))?;
+    let data_url = header_url.join(data_url_str)?;
+    let data_response = Client::new()
+        .get(data_url)
+        .send()
+        .await
+        .map_err(|e| anyhow!("When fetching web: {e}"))?
+        .text()
+        .await
+        .map_err(|e| anyhow!("When parsing web response: {e}"))?;
+    let data_json: Value = serde_json::from_str(&data_response)?;
+    create_bms_table_from_json(header_url.as_str(), header_json, data_json)
 }
 
-/// 从URL获取header的绝对URL地址、header和data的JSON解析树
-///
-/// # 参数
-///
-/// * `url` - BMS表格HTML页面的URL或直接指向JSON文件的URL
-///
-/// # 返回值
-///
-/// 返回一个元组，包含header的绝对URL地址、header的JSON解析树和data的JSON解析树
-///
-/// # 错误
-///
-/// 如果无法获取数据或解析失败，将返回错误
-///
-/// # 示例
-///
-/// ```rust,no_run
-/// use bms_table::fetch_table_json_data;
-///
-/// #[tokio::main]
-/// async fn main() -> anyhow::Result<()> {
-///     let (header_url, header_json, data_json) = fetch_table_json_data("https://example.com/table.html").await?;
-///     println!("Header URL: {}", header_url);
-///     println!("Header JSON: {:?}", header_json);
-///     println!("Data JSON: {:?}", data_json);
-///     Ok(())
-/// }
-/// ```
-pub async fn fetch_table_json_data(url: &str) -> Result<(String, Value, Value)> {
-    let response = Client::new().get(url).send().await?;
-    let content = response.text().await?;
+/// [`get_web_header_json_value`]的返回类型
+pub enum HeaderQueryContent {
+    /// 注意：可能解析出相对或绝对Url，建议使用[`Url::join`]。
+    Url(String),
+    /// Json树
+    Json(Value),
+}
 
+/// 从相应数据中提取Json树（Json内容）或Header地址（HTML内容）
+pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQueryContent> {
+    use crate::fetch::is_json_content;
     // 判断返回的内容是HTML还是JSON
-    let (header_url_str, header_json) = if is_json_content(&content) {
+    if is_json_content(response_str) {
         // 如果是JSON，直接当作header处理
-        let header_json: Value = serde_json::from_str(&content)?;
-        (url.to_string(), header_json)
+        let header_json: Value = serde_json::from_str(response_str)
+            .map_err(|e| anyhow!("When parsing header json, Error: {e}"))?;
+        Ok(HeaderQueryContent::Json(header_json))
     } else {
-        let bmstable_url = extract_bmstable_url(&content).await?;
-        let base_url_obj = Url::parse(url)?;
-        let header_url = base_url_obj.join(&bmstable_url)?;
-        let header_response = Client::new().get(header_url.as_str()).send().await?;
-        let header_json_content = header_response.text().await?;
-        let header_json: Value = serde_json::from_str(&header_json_content)?;
-        (header_url.to_string(), header_json)
-    };
-
-    let data_json = fetch_data_json(&header_json, &header_url_str).await?;
-
-    Ok((header_url_str, header_json, data_json))
+        let bmstable_url = extract_bmstable_url(response_str)?;
+        Ok(HeaderQueryContent::Url(bmstable_url))
+    }
 }
 
 /// 从header的绝对URL地址、header和data的JSON解析树创建BmsTable对象
@@ -158,7 +173,7 @@ pub async fn fetch_table_json_data(url: &str) -> Result<(String, Value, Value)> 
 ///     Ok(())
 /// }
 /// ```
-pub async fn create_bms_table_from_json(
+pub fn create_bms_table_from_json(
     header_url: &str,
     header_json: Value,
     data_json: Value,
@@ -202,6 +217,7 @@ pub async fn create_bms_table_from_json(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fetch::is_json_content;
     use serde_json::json;
     use url::Url;
 
@@ -248,7 +264,7 @@ mod tests {
             }
         ]);
 
-        let result = create_bms_table_from_json(header_url, header_json, data_json).await;
+        let result = create_bms_table_from_json(header_url, header_json, data_json);
         assert!(result.is_ok());
 
         let bms_table = result.unwrap();
@@ -290,19 +306,19 @@ mod tests {
         // 检查header的额外数据
         assert_eq!(bms_table.extra["extra_field"], "extra_value");
         assert_eq!(bms_table.extra["another_field"], 123);
-        assert!(!bms_table.extra.get("name").is_some()); // 确保已知字段被移除
+        assert!(bms_table.extra.get("name").is_none()); // 确保已知字段被移除
 
         // 检查score的额外数据
         assert_eq!(score.extra["custom_field"], "custom_value");
         assert_eq!(score.extra["rating"], 5.0);
-        assert!(!score.extra.get("level").is_some()); // 确保已知字段被移除
+        assert!(score.extra.get("level").is_none()); // 确保已知字段被移除
 
         // 测试level_order
         assert_eq!(bms_table.level_order.len(), 22);
         assert_eq!(bms_table.level_order[0], "0");
         assert_eq!(bms_table.level_order[20], "20");
         assert_eq!(bms_table.level_order[21], "!i");
-        assert!(!bms_table.extra.get("level_order").is_some()); // 确保level_order被移除
+        assert!(bms_table.extra.get("level_order").is_none()); // 确保level_order被移除
     }
 
     /// 测试创建BmsTable对象时处理空字符串字段
@@ -328,7 +344,7 @@ mod tests {
             }
         ]);
 
-        let result = create_bms_table_from_json(header_url, header_json, data_json).await;
+        let result = create_bms_table_from_json(header_url, header_json, data_json);
         assert!(result.is_ok());
 
         let bms_table = result.unwrap();
@@ -409,7 +425,7 @@ mod tests {
             }
         ]);
 
-        let result = create_bms_table_from_json(header_url, header_json, data_json).await;
+        let result = create_bms_table_from_json(header_url, header_json, data_json);
         assert!(result.is_ok()); // 这个测试应该通过，因为缺少的字段有默认值
     }
 
@@ -425,14 +441,14 @@ mod tests {
         });
         let data_json = json!([]);
 
-        let result = create_bms_table_from_json(header_url, header_json, data_json).await;
+        let result = create_bms_table_from_json(header_url, header_json, data_json);
         assert!(result.is_err());
     }
 
     /// 测试fetch_table_json_data函数的错误处理
     #[tokio::test]
     async fn test_fetch_table_json_data_invalid_url() {
-        let result = fetch_table_json_data("https://invalid-url-that-does-not-exist.com").await;
+        let result = fetch_bms_table("https://invalid-url-that-does-not-exist.com").await;
         assert!(result.is_err());
     }
 
