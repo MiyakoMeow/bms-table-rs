@@ -38,14 +38,18 @@
 //!   失败: 1 个
 //!   总计: 3 个
 //! ```
+#![allow(unused)]
 
 use anyhow::Result;
+#[cfg(feature = "reqwest")]
 use bms_table::{fetch_bms_table, BmsTable};
 use std::env;
+#[cfg(feature = "reqwest")]
 use tokio::sync::mpsc;
 
 /// 难度表获取结果
 #[derive(Debug)]
+#[cfg(feature = "reqwest")]
 struct FetchResult {
     /// 难度表名称
     name: String,
@@ -58,6 +62,7 @@ struct FetchResult {
 }
 
 /// 处理单个难度表获取完成的事件
+#[cfg(feature = "reqwest")]
 fn handle_fetch_complete(result: FetchResult) {
     match result.success {
         true => {
@@ -78,6 +83,7 @@ fn handle_fetch_complete(result: FetchResult) {
 }
 
 /// 获取单个难度表
+#[cfg(feature = "reqwest")]
 async fn fetch_single_table(url: &str) -> FetchResult {
     match fetch_bms_table(url).await {
         Ok(bms_table) => FetchResult {
@@ -112,6 +118,7 @@ async fn fetch_single_table(url: &str) -> FetchResult {
 ///
 /// 如果获取数据失败，程序会显示错误信息但继续处理其他难度表。
 #[tokio::main]
+#[cfg(feature = "reqwest")]
 async fn main() -> Result<()> {
     // 显示程序标题
     println!("多难度表并发获取器");
@@ -153,7 +160,7 @@ async fn main() -> Result<()> {
 
     // 显示正在获取数据的信息
     let url_count = urls.len();
-    println!("正在获取 {} 个难度表...", url_count);
+    println!("正在获取 {url_count} 个难度表...");
     println!();
 
     // 创建通道用于事件处理
@@ -190,9 +197,12 @@ async fn main() -> Result<()> {
     // 显示统计信息
     println!();
     println!("获取完成统计:");
-    println!("  并发获取: {} 个难度表", url_count);
+    println!("  并发获取: {url_count} 个难度表");
     println!("  处理方式: 异步并发");
     println!("  事件处理: 实时触发");
 
     Ok(())
 }
+
+#[cfg(not(feature = "reqwest"))]
+fn main() {}

@@ -14,8 +14,9 @@
 //! - 获取并解析BMS表格数据
 //! - 打印完整的BmsTable对象
 
+#[cfg(feature = "reqwest")]
 use anyhow::{Context, Result};
-use bms_table::fetch_bms_table;
+#[cfg(feature = "reqwest")]
 use std::env;
 
 /// 主函数
@@ -34,7 +35,9 @@ use std::env;
 ///
 /// 如果没有提供URL参数或获取数据失败，程序会显示错误信息并退出。
 #[tokio::main]
+#[cfg(feature = "reqwest")]
 async fn main() -> Result<()> {
+    use bms_table::fetch_bms_table;
     // 获取命令行参数
     let args: Vec<String> = env::args().collect();
 

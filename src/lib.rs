@@ -6,7 +6,6 @@
 mod fetch;
 
 use anyhow::{anyhow, Result};
-use reqwest::Client;
 use serde_json::Value;
 use url::Url;
 
@@ -60,9 +59,10 @@ pub struct BmsTable {
 ///     Ok(())
 /// }
 /// ```
+#[cfg(feature = "reqwest")]
 pub async fn fetch_bms_table(web_url: &str) -> Result<BmsTable> {
     let web_url = Url::parse(web_url)?;
-    let web_response = Client::new()
+    let web_response = reqwest::Client::new()
         .get(web_url.clone())
         .send()
         .await
@@ -73,7 +73,7 @@ pub async fn fetch_bms_table(web_url: &str) -> Result<BmsTable> {
     let (header_url, header_json) = match get_web_header_json_value(&web_response)? {
         HeaderQueryContent::Url(header_url_string) => {
             let header_url = web_url.join(&header_url_string)?;
-            let header_response = Client::new()
+            let header_response = reqwest::Client::new()
                 .get(header_url.clone())
                 .send()
                 .await
@@ -99,7 +99,7 @@ pub async fn fetch_bms_table(web_url: &str) -> Result<BmsTable> {
         .as_str()
         .ok_or(anyhow!("\"data_url\" is not a string!"))?;
     let data_url = header_url.join(data_url_str)?;
-    let data_response = Client::new()
+    let data_response = reqwest::Client::new()
         .get(data_url)
         .send()
         .await
@@ -158,6 +158,7 @@ pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQue
 /// use url::Url;
 ///
 /// #[tokio::main]
+/// #[cfg(feature = "reqwest")]
 /// async fn main() -> anyhow::Result<()> {
 ///     let header_url = "https://example.com/header.json";
 ///     let header_json = json!({
@@ -168,10 +169,13 @@ pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQue
 ///     });
 ///     let data_json = json!([]);
 ///     
-///     let bms_table = create_bms_table_from_json(header_url, header_json, data_json).await?;
+///     let bms_table = create_bms_table_from_json(header_url, header_json, data_json)?;
 ///     println!("表格名称: {}", bms_table.name);
 ///     Ok(())
 /// }
+///
+/// #[cfg(not(feature = "reqwest"))]
+/// fn main() {}
 /// ```
 pub fn create_bms_table_from_json(
     header_url: &str,
@@ -222,8 +226,8 @@ mod tests {
     use url::Url;
 
     /// 测试创建BmsTable对象
-    #[tokio::test]
-    async fn test_create_bms_table_from_json() {
+    #[test]
+    fn test_create_bms_table_from_json() {
         let header_url = "https://example.com/header.json";
         let header_json = json!({
             "name": "Test Table",
@@ -322,8 +326,8 @@ mod tests {
     }
 
     /// 测试创建BmsTable对象时处理空字符串字段
-    #[tokio::test]
-    async fn test_create_bms_table_with_empty_fields() {
+    #[test]
+    fn test_create_bms_table_with_empty_fields() {
         let header_url = "https://example.com/header.json";
         let header_json = json!({
             "name": "Test Table",
@@ -408,8 +412,8 @@ mod tests {
     }
 
     /// 测试错误处理 - 无效的JSON
-    #[tokio::test]
-    async fn test_create_bms_table_invalid_json() {
+    #[test]
+    fn test_create_bms_table_invalid_json() {
         let header_url = "https://example.com/header.json";
         let header_json = json!({
             "name": "Test Table",
@@ -430,8 +434,8 @@ mod tests {
     }
 
     /// 测试错误处理 - 无效的URL
-    #[tokio::test]
-    async fn test_create_bms_table_invalid_url() {
+    #[test]
+    fn test_create_bms_table_invalid_url() {
         let header_url = "invalid-url";
         let header_json = json!({
             "name": "Test Table",
@@ -447,6 +451,7 @@ mod tests {
 
     /// 测试fetch_table_json_data函数的错误处理
     #[tokio::test]
+    #[cfg(feature = "reqwest")]
     async fn test_fetch_table_json_data_invalid_url() {
         let result = fetch_bms_table("https://invalid-url-that-does-not-exist.com").await;
         assert!(result.is_err());
@@ -454,6 +459,7 @@ mod tests {
 
     /// 测试fetch_bms_table函数的错误处理
     #[tokio::test]
+    #[cfg(feature = "reqwest")]
     async fn test_fetch_bms_table_invalid_url() {
         let result = fetch_bms_table("https://invalid-url-that-does-not-exist.com").await;
         assert!(result.is_err());

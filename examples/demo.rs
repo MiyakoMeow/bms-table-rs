@@ -50,8 +50,10 @@
 //!      MD5: 176c2b2db4efd66cf186caae7923d477
 //!      URL: https://venue.bmssearch.net/bmsshuin3/75
 //! ```
+#![allow(unused)]
 
 use anyhow::Result;
+#[cfg(feature = "reqwest")]
 use bms_table::fetch_bms_table;
 use std::env;
 
@@ -72,6 +74,7 @@ use std::env;
 ///
 /// 如果获取数据失败，程序会显示错误信息并正常退出。
 #[tokio::main]
+#[cfg(feature = "reqwest")]
 async fn main() -> Result<()> {
     // 显示程序标题
     println!("BMS表格数据获取器");
@@ -166,3 +169,6 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(not(feature = "reqwest"))]
+fn main() {}

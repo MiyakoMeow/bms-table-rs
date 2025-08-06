@@ -361,8 +361,8 @@ mod tests {
     use super::*;
 
     /// 测试解析器创建功能
-    #[tokio::test]
-    async fn test_parser_creation() {
+    #[test]
+    fn test_parser_creation() {
         // 测试HTML内容中提取bmstable URL
         let html_content = r#"
         <!DOCTYPE html>
@@ -382,8 +382,8 @@ mod tests {
     }
 
     /// 测试解析器处理没有bmstable字段的HTML
-    #[tokio::test]
-    async fn test_parser_no_bmstable() {
+    #[test]
+    fn test_parser_no_bmstable() {
         let html_content = r#"
         <!DOCTYPE html>
         <html>
