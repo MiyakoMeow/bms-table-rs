@@ -14,7 +14,7 @@
 
 ## 项目结构
 
-```
+```bash
 bms-table/
 ├── Cargo.toml          # 项目配置和依赖
 ├── src/
@@ -29,7 +29,9 @@ bms-table/
 ## 数据结构
 
 ### BmsTable
+
 完整的BMS表格数据，包含：
+
 - `name`: 表格名称
 - `symbol`: 表格符号
 - `header_url`: 表格头文件URL
@@ -38,21 +40,27 @@ bms-table/
 - `charts`: 谱面数据数组
 
 ### BmsTableHeader
+
 BMS表格的头信息，包含：
+
 - `name`: 表格名称
 - `symbol`: 表格符号
 - `data_url`: 谱面数据文件URL
 - `course`: 课程信息数组
 
 ### CourseInfo
+
 课程信息，包含：
+
 - `name`: 课程名称
 - `constraint`: 约束条件
 - `trophy`: 奖杯信息
 - `charts`: 谱面数据列表（包含该课程的所有谱面信息）
 
 ### ChartItem
+
 谱面数据项，包含：
+
 - `level`: 难度等级
 - `md5`: MD5哈希（可选）
 - `sha256`: SHA256哈希（可选）
@@ -88,23 +96,9 @@ async fn main() -> Result<()> {
 }
 ```
 
-#### 方法2: 分步获取JSON数据（高级用法）
+#### 方法2: 使用自己的Client（高级用法）
 
-```rust
-use bms_table::{fetch_table_json_data, create_bms_table_from_json};
-use anyhow::Result;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // 分步获取JSON数据
-    let (header_url, header_json, data_json) = fetch_table_json_data("https://stellabms.xyz/sl/table.html").await?;
-    let bms_table = create_bms_table_from_json(&header_url, header_json, data_json).await?;
-    
-    println!("表格名称: {}", bms_table.name);
-    
-    Ok(())
-}
-```
+直接看`fetch_bms_table`的源代码就可以了。
 
 ### 运行示例程序
 
@@ -115,23 +109,6 @@ cargo run
 # 运行函数演示示例
 cargo run --example demo
 ```
-
-## API参考
-
-### 主要异步函数
-
-#### `fetch_bms_table(url: &str) -> Result<BmsTable>`
-从URL直接获取完整的BmsTable对象，这是最简单的方式。
-
-#### `fetch_table_json_data(url: &str) -> Result<(String, Value, Value)>`
-从URL获取header的绝对URL地址、header和data的JSON解析树。
-
-#### `create_bms_table_from_json(header_url: &str, header_json: Value, data_json: Value) -> Result<BmsTable>`
-从header的绝对URL地址、header和data的JSON解析树创建BmsTable对象。
-
-### 内部实现
-
-BmsTableParser类现在是内部实现，不再对外公开。用户应该使用上面提到的公共API函数。
 
 ## 依赖项
 
@@ -206,20 +183,26 @@ URL: https://stellabms.xyz/sl/table.html
 ## 特性说明
 
 ### 空字符串处理
+
 ChartItem中的可选字段在解析时会自动将空字符串转换为None，确保数据的准确性。
 
 ### 异步支持
+
 所有API都是异步的，支持高效的并发操作。
 
 ### 数据转换
+
 CourseInfo结构体支持多种数据格式的自动转换：
+
 - 如果JSON中包含 `md5` 字段（MD5哈希列表），会自动转换为 `charts` 中的 `ChartItem`
 - 如果JSON中包含 `sha256` 字段（SHA256哈希列表），会自动转换为 `charts` 中的 `ChartItem`
 - 转换后的 `ChartItem` 使用默认的 `level: "0"`，其他字段为 `None`
 
 ### 错误处理
+
 使用anyhow进行统一的错误处理，提供清晰的错误信息。
 
 ## 许可证
 
-MIT License 
+MIT License
+
