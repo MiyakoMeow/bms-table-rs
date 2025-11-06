@@ -116,12 +116,6 @@ pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
     Err(anyhow!("未找到bmstable字段"))
 }
 
-/// 判断内容是否为JSON格式
-#[must_use]
-pub fn is_json_content(content: &str) -> bool {
-    content.trim().starts_with('{') || content.trim().starts_with('[')
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
