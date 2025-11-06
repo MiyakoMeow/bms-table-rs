@@ -32,12 +32,8 @@ bms-table/
 
 完整的BMS表格数据，包含：
 
-- `name`: 表格名称
-- `symbol`: 表格符号
-- `header_url`: 表格头文件URL
-- `data_url`: 谱面数据文件URL
-- `course`: 课程信息数组
-- `charts`: 谱面数据数组
+- `header`: 表头信息与额外字段
+- `data`: 表数据（谱面列表）
 
 ### BmsTableHeader
 
@@ -45,8 +41,10 @@ BMS表格的头信息，包含：
 
 - `name`: 表格名称
 - `symbol`: 表格符号
-- `data_url`: 谱面数据文件URL
+- `data_url`: 谱面数据文件的URL字符串（原样保存，可能为相对或绝对）
 - `course`: 课程信息数组
+- `level_order`: 难度等级顺序
+- `extra`: 额外字段（来源于header JSON未识别字段）
 
 ### CourseInfo
 
@@ -89,8 +87,8 @@ async fn main() -> Result<()> {
     // 获取完整的BMS表格数据
     let bms_table = fetch_bms_table(base_url).await?;
     
-    println!("表格名称: {}", bms_table.name);
-    println!("谱面数据数量: {}", bms_table.charts.len());
+    println!("表格名称: {}", bms_table.header.name);
+    println!("谱面数据数量: {}", bms_table.data.charts.len());
     
     Ok(())
 }

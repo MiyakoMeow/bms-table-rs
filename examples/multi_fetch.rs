@@ -70,9 +70,9 @@ fn handle_fetch_complete(result: FetchResult) {
             println!(
                 "{} 获取完成 ({} 个谱面，{} 个课程组，{} 个课程)",
                 result.name,
-                table.charts.len(),
-                table.course.len(),
-                table.course.iter().flatten().count()
+                table.data.charts.len(),
+                table.header.course.len(),
+                table.header.course.iter().flatten().count()
             );
         }
         false => {
@@ -87,7 +87,7 @@ fn handle_fetch_complete(result: FetchResult) {
 async fn fetch_single_table(url: &str) -> FetchResult {
     match fetch_bms_table(url).await {
         Ok(bms_table) => FetchResult {
-            name: bms_table.name.clone(),
+            name: bms_table.header.name.clone(),
             success: true,
             error: None,
             table: Some(bms_table),

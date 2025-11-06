@@ -84,7 +84,7 @@ impl<'de> serde::Deserialize<'de> for BmsTableHeader {
             })
             .collect();
 
-        Ok(BmsTableHeader {
+        Ok(Self {
             name: helper.name,
             symbol: helper.symbol,
             data_url: helper.data_url,
@@ -188,7 +188,7 @@ impl<'de> serde::Deserialize<'de> for CourseInfo {
             });
         }
 
-        Ok(CourseInfo {
+        Ok(Self {
             name: helper.name,
             constraint: helper.constraint,
             trophy: helper.trophy,
@@ -295,7 +295,7 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
             .map(|s| s.to_string());
 
         // 提取额外数据（除了已知字段之外的所有数据）
-        let mut extra_data = value.clone();
+        let mut extra_data = value;
         if let Some(obj) = extra_data.as_object_mut() {
             // 移除已知字段，保留额外字段
             obj.remove("level");
@@ -309,7 +309,7 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
             obj.remove("url_diff");
         }
 
-        Ok(ChartItem {
+        Ok(Self {
             level,
             md5,
             sha256,
@@ -352,7 +352,7 @@ pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
 
 /// 判断内容是否为JSON格式
 #[allow(dead_code)]
-pub(super) fn is_json_content(content: &str) -> bool {
+pub fn is_json_content(content: &str) -> bool {
     content.trim().starts_with('{') || content.trim().starts_with('[')
 }
 

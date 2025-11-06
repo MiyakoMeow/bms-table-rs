@@ -9,27 +9,39 @@ use anyhow::{anyhow, Result};
 use serde_json::Value;
 use url::Url;
 
-use fetch::{extract_bmstable_url, BmsTableHeader, ChartItem, CourseInfo};
+use fetch::{extract_bmstable_url, ChartItem, CourseInfo};
 
 /// BMS难度表数据，看这一个就够了
 #[derive(Debug, Clone, PartialEq)]
 pub struct BmsTable {
+    /// 表头信息与额外字段
+    pub header: BmsTableHeader,
+    /// 表数据，包含谱面列表
+    pub data: BmsTableData,
+}
+
+/// BMS表头信息
+#[derive(Debug, Clone, PartialEq)]
+pub struct BmsTableHeader {
     /// 表格名称，如 "Satellite"
     pub name: String,
     /// 表格符号，如 "sl"
     pub symbol: String,
-    /// 表格头文件的相对URL，如 "header.json"
-    pub header_url: Url,
-    /// 谱面数据文件的相对URL，如 "score.json"
-    pub data_url: Url,
+    /// 谱面数据文件的URL（原样保存来自header JSON的字符串）
+    pub data_url: String,
     /// 课程信息数组，每个元素是一个课程组的数组
     pub course: Vec<Vec<CourseInfo>>,
-    /// 谱面数据
-    pub charts: Vec<ChartItem>,
     /// 难度等级顺序，包含数字和字符串
     pub level_order: Vec<String>,
-    /// 额外数据
+    /// 额外数据（来自header JSON中未识别的字段）
     pub extra: serde_json::Value,
+}
+
+/// BMS表数据
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BmsTableData {
+    /// 谱面数据
+    pub charts: Vec<ChartItem>,
 }
 
 /// 从URL直接获取BmsTable对象
@@ -54,8 +66,8 @@ pub struct BmsTable {
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
 ///     let bms_table = fetch_bms_table("https://example.com/table.html").await?;
-///     println!("表格名称: {}", bms_table.name);
-///     println!("谱面数据数量: {}", bms_table.charts.len());
+///     println!("表格名称: {}", bms_table.header.name);
+///     println!("谱面数据数量: {}", bms_table.data.charts.len());
 ///     Ok(())
 /// }
 /// ```
@@ -170,7 +182,7 @@ pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQue
 ///     let data_json = json!([]);
 ///     
 ///     let bms_table = create_bms_table_from_json(header_url, header_json, data_json)?;
-///     println!("表格名称: {}", bms_table.name);
+///     println!("表格名称: {}", bms_table.header.name);
 ///     Ok(())
 /// }
 ///
@@ -183,7 +195,7 @@ pub fn create_bms_table_from_json(
     data_json: Value,
 ) -> Result<BmsTable> {
     // 解析header JSON，保留额外数据
-    let header: BmsTableHeader = serde_json::from_value(header_json.clone())?;
+    let raw_header: crate::fetch::BmsTableHeader = serde_json::from_value(header_json.clone())?;
 
     // 提取额外数据（header_json中除了BmsTableHeader字段之外的数据）
     let mut extra_data = header_json;
@@ -199,21 +211,22 @@ pub fn create_bms_table_from_json(
     // 解析data JSON
     let charts: Vec<ChartItem> = serde_json::from_value(data_json)?;
 
-    // 构建URL对象
-    let header_url_obj = Url::parse(header_url)?;
-    let data_url_obj = header_url_obj.join(&header.data_url)?;
+    // 解析并校验 header_url，但不在结构体中保存
+    let _ = Url::parse(header_url)?;
 
     // 创建BmsTable对象
-    let bms_table = BmsTable {
-        name: header.name,
-        symbol: header.symbol,
-        header_url: header_url_obj,
-        data_url: data_url_obj,
-        course: header.course,
-        charts,
-        level_order: header.level_order,
+    let header = BmsTableHeader {
+        name: raw_header.name,
+        symbol: raw_header.symbol,
+        data_url: raw_header.data_url,
+        course: raw_header.course,
+        level_order: raw_header.level_order,
         extra: extra_data,
     };
+
+    let data = BmsTableData { charts };
+
+    let bms_table = BmsTable { header, data };
 
     Ok(bms_table)
 }
@@ -272,17 +285,14 @@ mod tests {
         assert!(result.is_ok());
 
         let bms_table = result.unwrap();
-        assert_eq!(bms_table.name, "Test Table");
-        assert_eq!(bms_table.symbol, "test");
-        assert_eq!(
-            bms_table.data_url.as_str(),
-            "https://example.com/charts.json"
-        );
-        assert_eq!(bms_table.course.len(), 1);
-        assert_eq!(bms_table.charts.len(), 1);
+        assert_eq!(bms_table.header.name, "Test Table");
+        assert_eq!(bms_table.header.symbol, "test");
+        assert_eq!(bms_table.header.data_url, "charts.json");
+        assert_eq!(bms_table.header.course.len(), 1);
+        assert_eq!(bms_table.data.charts.len(), 1);
 
         // 测试课程信息
-        let course = &bms_table.course[0][0];
+        let course = &bms_table.header.course[0][0];
         assert_eq!(course.name, "Test Course");
         assert_eq!(course.constraint, vec!["grade_mirror"]);
         assert_eq!(course.trophy.len(), 1);
@@ -294,7 +304,7 @@ mod tests {
         assert_eq!(course.charts[1].md5, Some("test_md5_2".to_string()));
 
         // 测试谱面数据
-        let score = &bms_table.charts[0];
+        let score = &bms_table.data.charts[0];
         assert_eq!(score.level, "1");
         assert_eq!(score.md5, Some("test_md5_1".to_string()));
         assert_eq!(score.sha256, Some("test_sha256_1".to_string()));
@@ -308,9 +318,9 @@ mod tests {
 
         // 测试额外数据
         // 检查header的额外数据
-        assert_eq!(bms_table.extra["extra_field"], "extra_value");
-        assert_eq!(bms_table.extra["another_field"], 123);
-        assert!(bms_table.extra.get("name").is_none()); // 确保已知字段被移除
+        assert_eq!(bms_table.header.extra["extra_field"], "extra_value");
+        assert_eq!(bms_table.header.extra["another_field"], 123);
+        assert!(bms_table.header.extra.get("name").is_none()); // 确保已知字段被移除
 
         // 检查score的额外数据
         assert_eq!(score.extra["custom_field"], "custom_value");
@@ -318,11 +328,11 @@ mod tests {
         assert!(score.extra.get("level").is_none()); // 确保已知字段被移除
 
         // 测试level_order
-        assert_eq!(bms_table.level_order.len(), 22);
-        assert_eq!(bms_table.level_order[0], "0");
-        assert_eq!(bms_table.level_order[20], "20");
-        assert_eq!(bms_table.level_order[21], "!i");
-        assert!(bms_table.extra.get("level_order").is_none()); // 确保level_order被移除
+        assert_eq!(bms_table.header.level_order.len(), 22);
+        assert_eq!(bms_table.header.level_order[0], "0");
+        assert_eq!(bms_table.header.level_order[20], "20");
+        assert_eq!(bms_table.header.level_order[21], "!i");
+        assert!(bms_table.header.extra.get("level_order").is_none()); // 确保level_order被移除
     }
 
     /// 测试创建BmsTable对象时处理空字符串字段
@@ -352,7 +362,7 @@ mod tests {
         assert!(result.is_ok());
 
         let bms_table = result.unwrap();
-        let score = &bms_table.charts[0];
+        let score = &bms_table.data.charts[0];
         assert_eq!(score.level, "1");
         assert_eq!(score.md5, None);
         assert_eq!(score.sha256, None);
@@ -365,47 +375,46 @@ mod tests {
     /// 测试BmsTable结构体的基本功能
     #[test]
     fn test_bms_table_creation() {
-        let bms_table = BmsTable {
+        let header = BmsTableHeader {
             name: "Test Table".to_string(),
             symbol: "test".to_string(),
-            header_url: Url::parse("https://example.com/header.json").unwrap(),
-            data_url: Url::parse("https://example.com/charts.json").unwrap(),
+            data_url: "https://example.com/charts.json".to_string(),
             course: vec![],
-            charts: vec![],
             level_order: vec!["0".to_string(), "1".to_string()],
             extra: json!({}),
         };
+        let data = BmsTableData { charts: vec![] };
+        let bms_table = BmsTable { header, data };
 
-        assert_eq!(bms_table.name, "Test Table");
-        assert_eq!(bms_table.symbol, "test");
-        assert_eq!(bms_table.course.len(), 0);
-        assert_eq!(bms_table.charts.len(), 0);
-        assert_eq!(bms_table.level_order.len(), 2);
+        assert_eq!(bms_table.header.name, "Test Table");
+        assert_eq!(bms_table.header.symbol, "test");
+        assert_eq!(bms_table.header.course.len(), 0);
+        assert_eq!(bms_table.data.charts.len(), 0);
+        assert_eq!(bms_table.header.level_order.len(), 2);
     }
 
     /// 测试BmsTable的PartialEq实现
     #[test]
     fn test_bms_table_partial_eq() {
-        let table1 = BmsTable {
+        let header1 = BmsTableHeader {
             name: "Test Table".to_string(),
             symbol: "test".to_string(),
-            header_url: Url::parse("https://example.com/header.json").unwrap(),
-            data_url: Url::parse("https://example.com/charts.json").unwrap(),
+            data_url: "https://example.com/charts.json".to_string(),
             course: vec![],
-            charts: vec![],
             level_order: vec!["0".to_string(), "1".to_string()],
             extra: json!({}),
         };
+        let data1 = BmsTableData { charts: vec![] };
+        let table1 = BmsTable {
+            header: header1.clone(),
+            data: data1,
+        };
 
+        let header2 = header1.clone();
+        let data2 = BmsTableData { charts: vec![] };
         let table2 = BmsTable {
-            name: "Test Table".to_string(),
-            symbol: "test".to_string(),
-            header_url: Url::parse("https://example.com/header.json").unwrap(),
-            data_url: Url::parse("https://example.com/charts.json").unwrap(),
-            course: vec![],
-            charts: vec![],
-            level_order: vec!["0".to_string(), "1".to_string()],
-            extra: json!({}),
+            header: header2,
+            data: data2,
         };
 
         assert_eq!(table1, table2);
@@ -480,7 +489,8 @@ mod tests {
     /// 测试JSON序列化和反序列化
     #[test]
     fn test_json_serialization() {
-        let header = BmsTableHeader {
+        // 测试fetch模块中的BmsTableHeader序列化/反序列化
+        let header = crate::fetch::BmsTableHeader {
             name: "Test Table".to_string(),
             symbol: "test".to_string(),
             data_url: "charts.json".to_string(),
@@ -489,7 +499,7 @@ mod tests {
         };
 
         let json = serde_json::to_string(&header).unwrap();
-        let parsed: BmsTableHeader = serde_json::from_str(&json).unwrap();
+        let parsed: crate::fetch::BmsTableHeader = serde_json::from_str(&json).unwrap();
 
         assert_eq!(header, parsed);
     }

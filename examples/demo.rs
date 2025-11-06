@@ -105,15 +105,15 @@ async fn main() -> Result<()> {
 
     // 显示表格基本信息
     println!("\n📋 表格信息:");
-    println!("  名称: {}", bms_table.name);
-    println!("  符号: {}", bms_table.symbol);
-    println!("  数据URL: {}", bms_table.data_url);
-    println!("  课程数量: {}", bms_table.course.len());
-    println!("  谱面数据数量: {}", bms_table.charts.len());
+    println!("  名称: {}", bms_table.header.name);
+    println!("  符号: {}", bms_table.header.symbol);
+    println!("  数据URL: {}", bms_table.header.data_url);
+    println!("  课程数量: {}", bms_table.header.course.len());
+    println!("  谱面数据数量: {}", bms_table.data.charts.len());
 
     // 显示课程信息
     println!("\n🎵 课程信息:");
-    for course in bms_table.course.iter().flatten() {
+    for course in bms_table.header.course.iter().flatten() {
         println!("  - {}", course.name);
         println!("    约束: {:?}", course.constraint);
         println!("    奖杯: {:?}", course.trophy);
@@ -122,7 +122,7 @@ async fn main() -> Result<()> {
 
     // 显示前几个谱面数据
     println!("\n📊 谱面数据 (前5个):");
-    for (i, score) in bms_table.charts.iter().take(5).enumerate() {
+    for (i, score) in bms_table.data.charts.iter().take(5).enumerate() {
         println!(
             "  {}. {} - {}",
             i + 1,
@@ -140,9 +140,10 @@ async fn main() -> Result<()> {
     }
 
     // 演示查找功能
-    if let Some(first_score) = bms_table.charts.first() {
+    if let Some(first_score) = bms_table.data.charts.first() {
         println!("\n🔍 演示查找功能:");
         if let Some(found) = bms_table
+            .data
             .charts
             .iter()
             .find(|score| score.md5 == first_score.md5)
@@ -155,6 +156,7 @@ async fn main() -> Result<()> {
         }
 
         if let Some(found) = bms_table
+            .data
             .charts
             .iter()
             .find(|score| score.sha256 == first_score.sha256)
