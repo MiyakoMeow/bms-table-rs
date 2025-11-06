@@ -13,21 +13,20 @@ keywords = ["bms", "table", "data", "fetch", "parser"]
 
 [features]
 default = ["reqwest"]
-reqwest = ["dep:reqwest", "dep:tokio"]
+reqwest = ["scraper", "dep:reqwest", "dep:tokio"]
+scraper = ["dep:scraper", "dep:url"]
 
 [dependencies]
-serde = { version = "^1", features = ["derive"] }
-serde_json = "^1"
-scraper = "~0.23"
-anyhow = "^1.0"
-url = { version = "^2.4" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1.0"
 
-reqwest = { version = "~0.12", features = ["json"], optional = true }
-tokio = { version = "^1", features = [
+scraper = { version = "0.24", optional = true }
+url = { version = "2", optional = true }
+
+reqwest = { version = "0.12", features = ["json"], optional = true }
+tokio = { version = "1", features = [
     "macros",
     "rt-multi-thread",
     "test-util",
 ], optional = true }
-
-[dev-dependencies]
-futures = "^0.3"

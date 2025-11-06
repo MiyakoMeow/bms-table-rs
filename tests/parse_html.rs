@@ -1,3 +1,5 @@
+#![cfg(feature = "scraper")]
+
 use bms_table::fetch::extract_bmstable_url;
 use url::Url;
 

@@ -1,4 +1,5 @@
 //! 网络请求与解析相关功能
+#![cfg(feature = "scraper")]
 
 pub mod reqwest;
 
