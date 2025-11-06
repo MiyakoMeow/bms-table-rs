@@ -9,13 +9,13 @@
 //! - 解析BMS表格头信息（包含课程、奖杯等元数据）
 //! - 获取和解析谱面数据（包含歌曲信息、下载链接等）
 //! - 完整的BMS表格数据获取流程
+#![cfg(feature = "reqwest")]
 
 use anyhow::{anyhow, Result};
 use serde_json::Value;
 use url::Url;
 
 /// 基于 reqwest 的高层获取函数
-#[cfg(feature = "reqwest")]
 pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
     let web_url = Url::parse(web_url)?;
     let web_response = reqwest::Client::new()

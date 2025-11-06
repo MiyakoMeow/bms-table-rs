@@ -1,5 +1,7 @@
 //! 网络请求与解析相关功能
 
+pub mod reqwest;
+
 use anyhow::{anyhow, Result};
 use scraper::{Html, Selector};
 use serde_json::Value;
@@ -49,5 +51,3 @@ pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
 
     Err(anyhow!("未找到bmstable字段"))
 }
-
-pub mod reqwest;
