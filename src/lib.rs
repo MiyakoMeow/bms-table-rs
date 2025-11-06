@@ -2,8 +2,11 @@
 //!
 
 #![warn(missing_docs)]
+#![warn(clippy::must_use_candidate)]
+#![deny(rustdoc::broken_intra_doc_links)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
-mod fetch;
+pub mod fetch;
 
 use anyhow::{anyhow, Result};
 use serde::Serialize;
@@ -385,7 +388,7 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
 /// # 示例
 ///
 /// ```rust,no_run
-/// use bms_table::fetch_bms_table;
+/// use bms_table::fetch::fetch_bms_table;
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -444,10 +447,6 @@ pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQue
 ///     Ok(())
 /// }
 /// ```
-
-// 重新导出基于 reqwest 的获取函数
-#[cfg(feature = "reqwest")]
-pub use fetch::fetch_bms_table;
 
 #[cfg(test)]
 mod tests {
@@ -656,21 +655,7 @@ mod tests {
 
     // 注意：已移除基于 URL 的构建函数，URL 校验逻辑由 fetch_bms_table 负责
 
-    /// 测试fetch_table_json_data函数的错误处理
-    #[tokio::test]
-    #[cfg(feature = "reqwest")]
-    async fn test_fetch_table_json_data_invalid_url() {
-        let result = fetch_bms_table("https://invalid-url-that-does-not-exist.com").await;
-        assert!(result.is_err());
-    }
-
-    /// 测试fetch_bms_table函数的错误处理
-    #[tokio::test]
-    #[cfg(feature = "reqwest")]
-    async fn test_fetch_bms_table_invalid_url() {
-        let result = fetch_bms_table("https://invalid-url-that-does-not-exist.com").await;
-        assert!(result.is_err());
-    }
+    // 注意：基于 reqwest 的网络相关测试已迁移至 fetch 模块的测试中
 
     /// 测试URL解析功能
     #[test]

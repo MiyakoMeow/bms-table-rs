@@ -73,6 +73,23 @@ pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
     Ok(crate::BmsTable { header, data })
 }
 
+#[cfg(test)]
+mod network_tests {
+    #[cfg(feature = "reqwest")]
+    #[tokio::test]
+    async fn test_fetch_table_json_data_invalid_url() {
+        let result = super::fetch_bms_table("https://invalid-url-that-does-not-exist.com").await;
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "reqwest")]
+    #[tokio::test]
+    async fn test_fetch_bms_table_invalid_url() {
+        let result = super::fetch_bms_table("https://invalid-url-that-does-not-exist.com").await;
+        assert!(result.is_err());
+    }
+}
+
 /// 从HTML页面内容中，提取bmstable字段指向的JSON文件URL
 pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
     let document = Html::parse_document(html_content);
@@ -100,6 +117,7 @@ pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
 }
 
 /// 判断内容是否为JSON格式
+#[must_use]
 pub fn is_json_content(content: &str) -> bool {
     content.trim().starts_with('{') || content.trim().starts_with('[')
 }
