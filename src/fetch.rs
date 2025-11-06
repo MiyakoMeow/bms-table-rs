@@ -14,6 +14,7 @@ use anyhow::{anyhow, Result};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use url::Url;
 
 /// BMS表格头信息
 ///
@@ -29,7 +30,7 @@ pub struct BmsTableHeader {
     pub data_url: String,
     /// 课程信息数组，每个元素是一个课程组的数组
     #[serde(default)]
-    pub course: Vec<Vec<CourseInfo>>,
+    pub course: Vec<Vec<crate::CourseInfo>>,
     /// 难度等级顺序，包含数字和字符串
     #[serde(default)]
     pub level_order: Vec<String>,
@@ -59,11 +60,11 @@ impl<'de> serde::Deserialize<'de> for BmsTableHeader {
                 // 检查第一个元素是否为数组
                 if let Some(Value::Array(_)) = arr.first() {
                     // 已经是Vec<Vec<CourseInfo>>格式
-                    serde_json::from_value(helper.course.clone())
+                    serde_json::from_value::<Vec<Vec<crate::CourseInfo>>>(helper.course.clone())
                         .map_err(serde::de::Error::custom)?
                 } else {
                     // 是Vec<CourseInfo>格式，需要包装成Vec<Vec<CourseInfo>>
-                    let course_info_vec: Vec<CourseInfo> =
+                    let course_info_vec: Vec<crate::CourseInfo> =
                         serde_json::from_value(helper.course.clone())
                             .map_err(serde::de::Error::custom)?;
                     vec![course_info_vec]
@@ -94,109 +95,6 @@ impl<'de> serde::Deserialize<'de> for BmsTableHeader {
     }
 }
 
-/// 课程信息
-///
-/// 定义了一个BMS课程的所有相关信息，包括约束条件、奖杯要求和谱面数据。
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct CourseInfo {
-    /// 课程名称，如 "Satellite Skill Analyzer 2nd sl0"
-    pub name: String,
-    /// 约束条件列表，如 ["grade_mirror", "gauge_lr2", "ln"]
-    #[serde(default)]
-    pub constraint: Vec<String>,
-    /// 奖杯信息列表，定义不同等级的奖杯要求
-    #[serde(default)]
-    pub trophy: Vec<Trophy>,
-    /// 谱面数据列表，包含该课程的所有谱面信息
-    #[serde(default)]
-    pub charts: Vec<ChartItem>,
-}
-
-impl<'de> serde::Deserialize<'de> for CourseInfo {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(serde::Deserialize)]
-        struct CourseInfoHelper {
-            name: String,
-            #[serde(default)]
-            constraint: Vec<String>,
-            #[serde(default)]
-            trophy: Vec<Trophy>,
-            #[serde(default, rename = "md5")]
-            md5list: Vec<String>,
-            #[serde(default, rename = "sha256")]
-            sha256list: Vec<String>,
-            #[serde(default)]
-            charts: Vec<Value>,
-        }
-
-        let helper = CourseInfoHelper::deserialize(deserializer)?;
-
-        // 处理charts字段，为ChartItem的level字段设置默认值
-        let mut charts = helper
-            .charts
-            .into_iter()
-            .map(|mut chart_value| {
-                if chart_value.get("level").is_none() {
-                    // 如果level字段不存在，添加默认值0
-                    let Some(chart_obj) = chart_value.as_object() else {
-                        return Err(serde::de::Error::custom("chart_value is not an object"));
-                    };
-                    let mut chart_obj = chart_obj.clone();
-                    chart_obj.insert(
-                        "level".to_string(),
-                        serde_json::Value::String("0".to_string()),
-                    );
-                    chart_value = serde_json::Value::Object(chart_obj);
-                }
-                serde_json::from_value(chart_value)
-            })
-            .collect::<Result<Vec<ChartItem>, serde_json::Error>>()
-            .map_err(serde::de::Error::custom)?;
-
-        // 将md5list转换为charts
-        for md5 in &helper.md5list {
-            charts.push(ChartItem {
-                level: "0".to_string(),
-                md5: Some(md5.clone()),
-                sha256: None,
-                title: None,
-                subtitle: None,
-                artist: None,
-                subartist: None,
-                url: None,
-                url_diff: None,
-                extra: serde_json::Value::Object(serde_json::Map::new()),
-            });
-        }
-
-        // 将sha256list转换为charts
-        for sha256 in &helper.sha256list {
-            charts.push(ChartItem {
-                level: "0".to_string(),
-                md5: None,
-                sha256: Some(sha256.clone()),
-                title: None,
-                subtitle: None,
-                artist: None,
-                subartist: None,
-                url: None,
-                url_diff: None,
-                extra: serde_json::Value::Object(serde_json::Map::new()),
-            });
-        }
-
-        Ok(Self {
-            name: helper.name,
-            constraint: helper.constraint,
-            trophy: helper.trophy,
-            charts,
-        })
-    }
-}
-
 /// 奖杯信息
 ///
 /// 定义了获得特定奖杯需要达到的谱面要求。
@@ -210,118 +108,57 @@ pub struct Trophy {
     pub scorerate: f64,
 }
 
-/// 谱面数据项
-///
-/// 表示一个BMS文件的谱面数据，包含文件信息和下载链接。
-/// 所有字段都是可选的，因为不同的BMS表格可能有不同的字段。
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct ChartItem {
-    /// 难度等级，如 "0"
-    pub level: String,
-    /// 文件的MD5哈希值
-    pub md5: Option<String>,
-    /// 文件的SHA256哈希值
-    pub sha256: Option<String>,
-    /// 歌曲标题
-    pub title: Option<String>,
-    /// 歌曲副标题
-    pub subtitle: Option<String>,
-    /// 艺术家名称
-    pub artist: Option<String>,
-    /// 歌曲副艺术家
-    pub subartist: Option<String>,
-    /// 文件下载链接
-    pub url: Option<String>,
-    /// 差分文件下载链接（可选）
-    pub url_diff: Option<String>,
-    /// 额外数据
-    pub extra: Value,
-}
-
-impl<'de> serde::Deserialize<'de> for ChartItem {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // 首先将整个值解析为Value
-        let value: Value = Value::deserialize(deserializer)?;
-
-        // 提取已知字段
-        let level = value
-            .get("level")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| serde::de::Error::missing_field("level"))?
-            .to_string();
-
-        let md5 = value
-            .get("md5")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let sha256 = value
-            .get("sha256")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let title = value
-            .get("title")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let subtitle = value
-            .get("subtitle")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let artist = value
-            .get("artist")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let subartist = value
-            .get("subartist")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let url = value
-            .get("url")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let url_diff = value
-            .get("url_diff")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-
-        // 提取额外数据（除了已知字段之外的所有数据）
-        let mut extra_data = value;
-        if let Some(obj) = extra_data.as_object_mut() {
-            // 移除已知字段，保留额外字段
-            obj.remove("level");
-            obj.remove("md5");
-            obj.remove("sha256");
-            obj.remove("title");
-            obj.remove("subtitle");
-            obj.remove("artist");
-            obj.remove("subartist");
-            obj.remove("url");
-            obj.remove("url_diff");
+/// 基于 reqwest 的高层获取函数
+#[cfg(feature = "reqwest")]
+pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
+    let web_url = Url::parse(web_url)?;
+    let web_response = reqwest::Client::new()
+        .get(web_url.clone())
+        .send()
+        .await
+        .map_err(|e| anyhow!("When fetching web: {e}"))?
+        .text()
+        .await
+        .map_err(|e| anyhow!("When parsing web response: {e}"))?;
+    let (header_url, header_json) = match crate::get_web_header_json_value(&web_response)? {
+        crate::HeaderQueryContent::Url(header_url_string) => {
+            let header_url = web_url.join(&header_url_string)?;
+            let header_response = reqwest::Client::new()
+                .get(header_url.clone())
+                .send()
+                .await
+                .map_err(|e| anyhow!("When fetching header: {e}"))?;
+            let header_response_string = header_response
+                .text()
+                .await
+                .map_err(|e| anyhow!("When parsing header response: {e}"))?;
+            let crate::HeaderQueryContent::Json(header_json) =
+                crate::get_web_header_json_value(&header_response_string)?
+            else {
+                return Err(anyhow!(
+                    "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
+                ));
+            };
+            (header_url, header_json)
         }
-
-        Ok(Self {
-            level,
-            md5,
-            sha256,
-            title,
-            subtitle,
-            artist,
-            subartist,
-            url,
-            url_diff,
-            extra: extra_data,
-        })
-    }
+        crate::HeaderQueryContent::Json(value) => (web_url, value),
+    };
+    let data_url_str = header_json
+        .get("data_url")
+        .ok_or(anyhow!("\"data_url\" not found in header json!"))?
+        .as_str()
+        .ok_or(anyhow!("\"data_url\" is not a string!"))?;
+    let data_url = header_url.join(data_url_str)?;
+    let data_response = reqwest::Client::new()
+        .get(data_url)
+        .send()
+        .await
+        .map_err(|e| anyhow!("When fetching web: {e}"))?
+        .text()
+        .await
+        .map_err(|e| anyhow!("When parsing web response: {e}"))?;
+    let data_json: Value = serde_json::from_str(&data_response)?;
+    crate::create_bms_table_from_json(header_url.as_str(), header_json, data_json)
 }
 
 /// 从HTML页面内容中，提取bmstable字段指向的JSON文件URL
@@ -532,7 +369,7 @@ mod tests {
             ]
         }"#;
 
-        let result: Result<CourseInfo, _> = serde_json::from_str(json_data);
+        let result: Result<crate::CourseInfo, _> = serde_json::from_str(json_data);
         assert!(result.is_ok());
 
         let course_info = result.unwrap();
@@ -570,7 +407,7 @@ mod tests {
             "sha256": ["sha256_hash_1", "sha256_hash_2"]
         }"#;
 
-        let result: Result<CourseInfo, _> = serde_json::from_str(json_data);
+        let result: Result<crate::CourseInfo, _> = serde_json::from_str(json_data);
         assert!(result.is_ok());
 
         let course_info = result.unwrap();
@@ -616,7 +453,7 @@ mod tests {
             ]
         }"#;
 
-        let result: Result<CourseInfo, _> = serde_json::from_str(json_data);
+        let result: Result<crate::CourseInfo, _> = serde_json::from_str(json_data);
         assert!(result.is_ok());
 
         let course_info = result.unwrap();
