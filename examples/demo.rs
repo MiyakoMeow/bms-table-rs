@@ -54,7 +54,7 @@
 
 use anyhow::Result;
 #[cfg(feature = "reqwest")]
-use bms_table::fetch::fetch_bms_table;
+use bms_table::fetch::reqwest::fetch_bms_table;
 use std::env;
 
 /// 主函数

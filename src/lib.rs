@@ -12,7 +12,7 @@ use anyhow::Result;
 use serde::Serialize;
 use serde_json::Value;
 
-use fetch::extract_bmstable_url;
+use crate::fetch::reqwest::extract_bmstable_url;
 
 /// BMS难度表数据，看这一个就够了
 #[derive(Debug, Clone, PartialEq)]
