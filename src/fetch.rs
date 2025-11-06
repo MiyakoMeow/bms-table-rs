@@ -12,101 +12,8 @@
 
 use anyhow::{anyhow, Result};
 use scraper::{Html, Selector};
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use url::Url;
-
-/// BMS表格头信息
-///
-/// 包含表格的基本信息和课程配置。
-/// 这个结构体对应BMS表格头JSON文件的主要结构。
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct BmsTableHeader {
-    /// 表格名称，如 "Satellite"
-    pub name: String,
-    /// 表格符号，如 "sl"
-    pub symbol: String,
-    /// 谱面数据文件的相对URL，如 "score.json"
-    pub data_url: String,
-    /// 课程信息数组，每个元素是一个课程组的数组
-    #[serde(default)]
-    pub course: Vec<Vec<crate::CourseInfo>>,
-    /// 难度等级顺序，包含数字和字符串
-    #[serde(default)]
-    pub level_order: Vec<String>,
-}
-
-impl<'de> serde::Deserialize<'de> for BmsTableHeader {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(serde::Deserialize)]
-        struct BmsTableHeaderHelper {
-            name: String,
-            symbol: String,
-            data_url: String,
-            #[serde(default)]
-            course: Value,
-            #[serde(default)]
-            level_order: Option<Vec<Value>>,
-        }
-
-        let helper = BmsTableHeaderHelper::deserialize(deserializer)?;
-
-        // 处理course字段，支持Vec<CourseInfo>和Vec<Vec<CourseInfo>>两种格式
-        let course = match &helper.course {
-            Value::Array(arr) if !arr.is_empty() => {
-                // 检查第一个元素是否为数组
-                if let Some(Value::Array(_)) = arr.first() {
-                    // 已经是Vec<Vec<CourseInfo>>格式
-                    serde_json::from_value::<Vec<Vec<crate::CourseInfo>>>(helper.course.clone())
-                        .map_err(serde::de::Error::custom)?
-                } else {
-                    // 是Vec<CourseInfo>格式，需要包装成Vec<Vec<CourseInfo>>
-                    let course_info_vec: Vec<crate::CourseInfo> =
-                        serde_json::from_value(helper.course.clone())
-                            .map_err(serde::de::Error::custom)?;
-                    vec![course_info_vec]
-                }
-            }
-            _ => Vec::new(),
-        };
-
-        // 处理level_order，将数字和字符串都转换为字符串
-        let level_order = helper
-            .level_order
-            .unwrap_or_default()
-            .into_iter()
-            .map(|v| match v {
-                Value::Number(n) => n.to_string(),
-                Value::String(s) => s,
-                _ => v.to_string(),
-            })
-            .collect();
-
-        Ok(Self {
-            name: helper.name,
-            symbol: helper.symbol,
-            data_url: helper.data_url,
-            course,
-            level_order,
-        })
-    }
-}
-
-/// 奖杯信息
-///
-/// 定义了获得特定奖杯需要达到的谱面要求。
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-pub struct Trophy {
-    /// 奖杯名称，如 "silvermedal" 或 "goldmedal"
-    pub name: String,
-    /// 最大miss率（百分比），如 5.0 表示最大5%的miss率
-    pub missrate: f64,
-    /// 最小得分率（百分比），如 70.0 表示至少70%的得分率
-    pub scorerate: f64,
-}
 
 /// 基于 reqwest 的高层获取函数
 #[cfg(feature = "reqwest")]
@@ -158,7 +65,12 @@ pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
     let data_json: Value = serde_json::from_str(&data_response)?;
-    crate::create_bms_table_from_json(header_url.as_str(), header_json, data_json)
+    // 直接使用库内反序列化生成 BmsTable
+    let header: crate::BmsTableHeader = serde_json::from_value(header_json)
+        .map_err(|e| anyhow!("When parsing header json: {e}"))?;
+    let data: crate::BmsTableData =
+        serde_json::from_value(data_json).map_err(|e| anyhow!("When parsing data json: {e}"))?;
+    Ok(crate::BmsTable { header, data })
 }
 
 /// 从HTML页面内容中，提取bmstable字段指向的JSON文件URL
@@ -188,7 +100,6 @@ pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
 }
 
 /// 判断内容是否为JSON格式
-#[allow(dead_code)]
 pub fn is_json_content(content: &str) -> bool {
     content.trim().starts_with('{') || content.trim().starts_with('[')
 }
@@ -260,7 +171,7 @@ mod tests {
             ]
         }"#;
 
-        let result: Result<BmsTableHeader, _> = serde_json::from_str(json_data);
+        let result: Result<crate::BmsTableHeader, _> = serde_json::from_str(json_data);
         assert!(result.is_ok());
 
         let header = result.unwrap();
@@ -317,7 +228,7 @@ mod tests {
             ]
         }"#;
 
-        let result: Result<BmsTableHeader, _> = serde_json::from_str(json_data);
+        let result: Result<crate::BmsTableHeader, _> = serde_json::from_str(json_data);
         assert!(result.is_ok());
 
         let header = result.unwrap();

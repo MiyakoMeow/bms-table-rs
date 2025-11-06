@@ -8,9 +8,7 @@ mod fetch;
 use anyhow::{anyhow, Result};
 use serde::Serialize;
 use serde_json::Value;
-use url::Url;
 
-use crate::fetch::Trophy;
 use fetch::extract_bmstable_url;
 
 /// BMS难度表数据，看这一个就够了
@@ -23,7 +21,7 @@ pub struct BmsTable {
 }
 
 /// BMS表头信息
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct BmsTableHeader {
     /// 表格名称，如 "Satellite"
     pub name: String,
@@ -39,11 +37,118 @@ pub struct BmsTableHeader {
     pub extra: serde_json::Value,
 }
 
+impl<'de> serde::Deserialize<'de> for BmsTableHeader {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // 先把整个JSON作为Value读取，便于提取已知字段并收集额外字段
+        let mut value: Value = Value::deserialize(deserializer)?;
+
+        // name
+        let name = value
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| serde::de::Error::missing_field("name"))?
+            .to_string();
+
+        // symbol
+        let symbol = value
+            .get("symbol")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| serde::de::Error::missing_field("symbol"))?
+            .to_string();
+
+        // data_url
+        let data_url = value
+            .get("data_url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| serde::de::Error::missing_field("data_url"))?
+            .to_string();
+
+        // course：支持 Vec<CourseInfo> 和 Vec<Vec<CourseInfo>> 两种格式
+        let course = match value.get("course") {
+            Some(Value::Array(arr)) if !arr.is_empty() => {
+                if matches!(arr.first(), Some(Value::Array(_))) {
+                    // Vec<Vec<CourseInfo>>
+                    serde_json::from_value::<Vec<Vec<CourseInfo>>>(value["course"].clone())
+                        .map_err(serde::de::Error::custom)?
+                } else {
+                    // Vec<CourseInfo> -> 包装为 Vec<Vec<CourseInfo>>
+                    let inner: Vec<CourseInfo> = serde_json::from_value(value["course"].clone())
+                        .map_err(serde::de::Error::custom)?;
+                    vec![inner]
+                }
+            }
+            _ => Vec::new(),
+        };
+
+        // level_order：数字和字符串统一转为字符串
+        let level_order = match value.get("level_order") {
+            Some(Value::Array(arr)) => arr
+                .iter()
+                .map(|v| match v {
+                    Value::Number(n) => n.to_string(),
+                    Value::String(s) => s.clone(),
+                    _ => v.to_string(),
+                })
+                .collect::<Vec<String>>(),
+            _ => Vec::new(),
+        };
+
+        // 收集额外字段：移除已知字段后剩余的内容
+        if let Some(obj) = value.as_object_mut() {
+            obj.remove("name");
+            obj.remove("symbol");
+            obj.remove("data_url");
+            obj.remove("course");
+            obj.remove("level_order");
+        }
+
+        Ok(Self {
+            name,
+            symbol,
+            data_url,
+            course,
+            level_order,
+            extra: value,
+        })
+    }
+}
+
 /// BMS表数据
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BmsTableData {
     /// 谱面数据
     pub charts: Vec<ChartItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for BmsTableData {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // 支持两种输入：
+        // 1) 直接是数组： [ {...}, {...} ]
+        // 2) 对象包裹： { "charts": [ {...}, {...} ] }
+        let value: Value = Value::deserialize(deserializer)?;
+        match value {
+            Value::Array(arr) => {
+                let charts: Vec<ChartItem> =
+                    serde_json::from_value(Value::Array(arr)).map_err(serde::de::Error::custom)?;
+                Ok(Self { charts })
+            }
+            Value::Object(mut obj) => {
+                let charts_value = obj.remove("charts").unwrap_or(Value::Array(vec![]));
+                let charts: Vec<ChartItem> =
+                    serde_json::from_value(charts_value).map_err(serde::de::Error::custom)?;
+                Ok(Self { charts })
+            }
+            _ => Err(serde::de::Error::custom(
+                "BmsTableData expects array or object with charts",
+            )),
+        }
+    }
 }
 
 /// 课程信息
@@ -314,90 +419,31 @@ pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQue
     }
 }
 
-/// 从header的绝对URL地址、header和data的JSON解析树创建BmsTable对象
+/// 示例：通过反序列化生成 `BmsTable`
 ///
-/// # 参数
-///
-/// * `header_url` - header文件的绝对URL地址
-/// * `header_json` - header的JSON解析树
-/// * `data_json` - data的JSON解析树
-///
-/// # 返回值
-///
-/// 返回解析后的BmsTable对象
-///
-/// # 错误
-///
-/// 如果JSON解析失败或URL解析失败，将返回错误
-///
-/// # 示例
-///
-/// ```rust,no_run
-/// use bms_table::{create_bms_table_from_json, BmsTable};
+/// ```rust
+/// use bms_table::{BmsTable, BmsTableHeader, BmsTableData};
 /// use serde_json::json;
-/// use url::Url;
 ///
-/// #[tokio::main]
-/// #[cfg(feature = "reqwest")]
-/// async fn main() -> anyhow::Result<()> {
-///     let header_url = "https://example.com/header.json";
+/// fn main() -> anyhow::Result<()> {
 ///     let header_json = json!({
 ///         "name": "Test Table",
 ///         "symbol": "test",
 ///         "data_url": "score.json",
 ///         "course": []
 ///     });
-///     let data_json = json!([]);
-///     
-///     let bms_table = create_bms_table_from_json(header_url, header_json, data_json)?;
-///     println!("表格名称: {}", bms_table.header.name);
+///     let data_json = json!([
+///         { "level": "0", "title": "Song" }
+///     ]);
+///
+///     let header: BmsTableHeader = serde_json::from_value(header_json)?;
+///     let data: BmsTableData = serde_json::from_value(data_json)?;
+///     let table = BmsTable { header, data };
+///
+///     println!("表格名称: {}", table.header.name);
 ///     Ok(())
 /// }
-///
-/// #[cfg(not(feature = "reqwest"))]
-/// fn main() {}
 /// ```
-pub fn create_bms_table_from_json(
-    header_url: &str,
-    header_json: Value,
-    data_json: Value,
-) -> Result<BmsTable> {
-    // 解析header JSON，保留额外数据
-    let raw_header: crate::fetch::BmsTableHeader = serde_json::from_value(header_json.clone())?;
-
-    // 提取额外数据（header_json中除了BmsTableHeader字段之外的数据）
-    let mut extra_data = header_json;
-    if let Some(obj) = extra_data.as_object_mut() {
-        // 移除已知字段，保留额外字段
-        obj.remove("name");
-        obj.remove("symbol");
-        obj.remove("data_url");
-        obj.remove("course");
-        obj.remove("level_order");
-    }
-
-    // 解析data JSON
-    let charts: Vec<ChartItem> = serde_json::from_value(data_json)?;
-
-    // 解析并校验 header_url，但不在结构体中保存
-    let _ = Url::parse(header_url)?;
-
-    // 创建BmsTable对象
-    let header = BmsTableHeader {
-        name: raw_header.name,
-        symbol: raw_header.symbol,
-        data_url: raw_header.data_url,
-        course: raw_header.course,
-        level_order: raw_header.level_order,
-        extra: extra_data,
-    };
-
-    let data = BmsTableData { charts };
-
-    let bms_table = BmsTable { header, data };
-
-    Ok(bms_table)
-}
 
 // 重新导出基于 reqwest 的获取函数
 #[cfg(feature = "reqwest")]
@@ -412,8 +458,7 @@ mod tests {
 
     /// 测试创建BmsTable对象
     #[test]
-    fn test_create_bms_table_from_json() {
-        let header_url = "https://example.com/header.json";
+    fn test_build_bms_table_from_json() {
         let header_json = json!({
             "name": "Test Table",
             "symbol": "test",
@@ -452,11 +497,9 @@ mod tests {
                 "rating": 5.0
             }
         ]);
-
-        let result = create_bms_table_from_json(header_url, header_json, data_json);
-        assert!(result.is_ok());
-
-        let bms_table = result.unwrap();
+        let header: BmsTableHeader = serde_json::from_value(header_json).unwrap();
+        let data: BmsTableData = serde_json::from_value(data_json).unwrap();
+        let bms_table = BmsTable { header, data };
         assert_eq!(bms_table.header.name, "Test Table");
         assert_eq!(bms_table.header.symbol, "test");
         assert_eq!(bms_table.header.data_url, "charts.json");
@@ -509,8 +552,7 @@ mod tests {
 
     /// 测试创建BmsTable对象时处理空字符串字段
     #[test]
-    fn test_create_bms_table_with_empty_fields() {
-        let header_url = "https://example.com/header.json";
+    fn test_build_bms_table_with_empty_fields() {
         let header_json = json!({
             "name": "Test Table",
             "symbol": "test",
@@ -529,11 +571,9 @@ mod tests {
                 "url_diff": ""
             }
         ]);
-
-        let result = create_bms_table_from_json(header_url, header_json, data_json);
-        assert!(result.is_ok());
-
-        let bms_table = result.unwrap();
+        let header: BmsTableHeader = serde_json::from_value(header_json).unwrap();
+        let data: BmsTableData = serde_json::from_value(data_json).unwrap();
+        let bms_table = BmsTable { header, data };
         let score = &bms_table.data.charts[0];
         assert_eq!(score.level, "1");
         assert_eq!(score.md5, None);
@@ -594,8 +634,7 @@ mod tests {
 
     /// 测试错误处理 - 无效的JSON
     #[test]
-    fn test_create_bms_table_invalid_json() {
-        let header_url = "https://example.com/header.json";
+    fn test_build_bms_table_invalid_json() {
         let header_json = json!({
             "name": "Test Table",
             "symbol": "test",
@@ -609,26 +648,13 @@ mod tests {
                 // 缺少必要的字段
             }
         ]);
-
-        let result = create_bms_table_from_json(header_url, header_json, data_json);
-        assert!(result.is_ok()); // 这个测试应该通过，因为缺少的字段有默认值
+        let header: BmsTableHeader = serde_json::from_value(header_json).unwrap();
+        let data: BmsTableData = serde_json::from_value(data_json).unwrap();
+        let _bms_table = BmsTable { header, data };
+        // 这个测试应该通过，因为缺少的字段有默认值
     }
 
-    /// 测试错误处理 - 无效的URL
-    #[test]
-    fn test_create_bms_table_invalid_url() {
-        let header_url = "invalid-url";
-        let header_json = json!({
-            "name": "Test Table",
-            "symbol": "test",
-            "data_url": "charts.json",
-            "course": []
-        });
-        let data_json = json!([]);
-
-        let result = create_bms_table_from_json(header_url, header_json, data_json);
-        assert!(result.is_err());
-    }
+    // 注意：已移除基于 URL 的构建函数，URL 校验逻辑由 fetch_bms_table 负责
 
     /// 测试fetch_table_json_data函数的错误处理
     #[tokio::test]
@@ -661,17 +687,18 @@ mod tests {
     /// 测试JSON序列化和反序列化
     #[test]
     fn test_json_serialization() {
-        // 测试fetch模块中的BmsTableHeader序列化/反序列化
-        let header = crate::fetch::BmsTableHeader {
+        // 测试库内的BmsTableHeader序列化/反序列化
+        let header = crate::BmsTableHeader {
             name: "Test Table".to_string(),
             symbol: "test".to_string(),
             data_url: "charts.json".to_string(),
             course: vec![],
             level_order: vec!["0".to_string(), "1".to_string(), "!i".to_string()],
+            extra: serde_json::json!({}),
         };
 
         let json = serde_json::to_string(&header).unwrap();
-        let parsed: crate::fetch::BmsTableHeader = serde_json::from_str(&json).unwrap();
+        let parsed: crate::BmsTableHeader = serde_json::from_str(&json).unwrap();
 
         assert_eq!(header, parsed);
     }
@@ -693,4 +720,16 @@ mod tests {
         assert!(!is_json_content(""));
         assert!(!is_json_content("   "));
     }
+}
+/// 奖杯信息
+///
+/// 定义了获得特定奖杯需要达到的谱面要求。
+#[derive(Debug, Clone, serde::Deserialize, Serialize, PartialEq)]
+pub struct Trophy {
+    /// 奖杯名称，如 "silvermedal" 或 "goldmedal"
+    pub name: String,
+    /// 最大miss率（百分比），如 5.0 表示最大5%的miss率
+    pub missrate: f64,
+    /// 最小得分率（百分比），如 70.0 表示至少70%的得分率
+    pub scorerate: f64,
 }
