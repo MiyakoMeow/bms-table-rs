@@ -443,7 +443,7 @@ fn test_json_serialization() {
     let json = serde_json::to_string(&header).unwrap();
     let parsed: bms_table::BmsTableHeader = serde_json::from_str(&json).unwrap();
     let mut expected = header;
-    expected.extra = serde_json::json!({ "extra": {} });
+    expected.extra = serde_json::json!({});
     // 反序列化逻辑：空的 `course: []` 视为扁平形式并包一层空组
     expected.course = vec![Vec::new()];
     assert_eq!(expected, parsed);

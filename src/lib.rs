@@ -36,6 +36,7 @@
 
 pub mod de;
 pub mod fetch;
+pub mod ser;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -54,7 +55,7 @@ pub struct BmsTable {
 /// BMS 表头信息。
 ///
 /// 该结构严格解析常见字段，并把未识别的字段保存在 `extra` 中，保证向前兼容。
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BmsTableHeader {
     /// 表格名称，如 "Satellite"
     pub name: String,
@@ -102,7 +103,7 @@ pub struct CourseInfo {
 ///
 /// 描述单个 BMS 文件的相关元数据与资源链接。为空字符串的可选字段在反序列化时会
 /// 自动转换为 `None`，以提升数据质量。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChartItem {
     /// 难度等级，如 "0"
     pub level: String,
