@@ -51,9 +51,9 @@ pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
     };
     let data_url_str = header_json
         .get("data_url")
-        .ok_or(anyhow!("\"data_url\" not found in header json!"))?
+        .ok_or_else(|| anyhow!("\"data_url\" not found in header json!"))?
         .as_str()
-        .ok_or(anyhow!("\"data_url\" is not a string!"))?;
+        .ok_or_else(|| anyhow!("\"data_url\" is not a string!"))?;
     let data_url = header_url.join(data_url_str)?;
     let data_response = reqwest::Client::new()
         .get(data_url)

@@ -126,17 +126,11 @@ async fn main() -> Result<()> {
         println!(
             "  {}. {} - {}",
             i + 1,
-            score.title.as_ref().unwrap_or(&"".to_string()),
-            score.artist.as_ref().unwrap_or(&"".to_string())
+            score.title.as_deref().unwrap_or(""),
+            score.artist.as_deref().unwrap_or("")
         );
-        println!(
-            "     MD5: {}",
-            score.md5.as_ref().unwrap_or(&"".to_string())
-        );
-        println!(
-            "     URL: {}",
-            score.url.as_ref().unwrap_or(&"".to_string())
-        );
+        println!("     MD5: {}", score.md5.as_deref().unwrap_or(""));
+        println!("     URL: {}", score.url.as_deref().unwrap_or(""));
     }
 
     // 演示查找功能
@@ -150,8 +144,8 @@ async fn main() -> Result<()> {
         {
             println!(
                 "  通过MD5找到: {} - {}",
-                found.title.as_ref().unwrap_or(&"".to_string()),
-                found.artist.as_ref().unwrap_or(&"".to_string())
+                found.title.as_deref().unwrap_or(""),
+                found.artist.as_deref().unwrap_or("")
             );
         }
 
@@ -163,8 +157,8 @@ async fn main() -> Result<()> {
         {
             println!(
                 "  通过SHA256找到: {} - {}",
-                found.title.as_ref().unwrap_or(&"".to_string()),
-                found.artist.as_ref().unwrap_or(&"".to_string())
+                found.title.as_deref().unwrap_or(""),
+                found.artist.as_deref().unwrap_or("")
             );
         }
     }
