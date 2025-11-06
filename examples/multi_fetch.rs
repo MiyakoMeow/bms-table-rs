@@ -9,36 +9,6 @@
 //! - 每个难度表获取完成后触发事件
 //! - 显示获取进度和结果
 //! - 错误处理和重试机制
-//!
-//! # 运行方式
-//!
-//! ```bash
-//! # 使用默认难度表列表
-//! cargo run --example multi_fetch
-//!
-//! # 指定自定义难度表列表
-//! cargo run --example multi_fetch "https://stellabms.xyz/sl/table.html" "https://stellabms.xyz/ln/table.html"
-//! ```
-//!
-//! # 输出示例
-//!
-//! 程序运行后会显示类似以下的输出：
-//!
-//! ```
-//! 多难度表并发获取器
-//! ===================
-//! 正在获取 3 个难度表...
-//!
-//! Satellite 获取完成
-//! LN 获取完成
-//! DP 获取失败: 网络连接错误
-//!
-//! 获取完成统计:
-//!   成功: 2 个
-//!   失败: 1 个
-//!   总计: 3 个
-//! ```
-#![allow(unused)]
 
 use anyhow::Result;
 #[cfg(feature = "reqwest")]
@@ -47,60 +17,6 @@ use bms_table::BmsTable;
 use std::env;
 #[cfg(feature = "reqwest")]
 use tokio::sync::mpsc;
-
-/// 难度表获取结果
-#[derive(Debug)]
-#[cfg(feature = "reqwest")]
-struct FetchResult {
-    /// 难度表名称
-    name: String,
-    /// 是否成功
-    success: bool,
-    /// 错误信息（如果失败）
-    error: Option<String>,
-    /// 难度表
-    table: Option<BmsTable>,
-}
-
-/// 处理单个难度表获取完成的事件
-#[cfg(feature = "reqwest")]
-fn handle_fetch_complete(result: FetchResult) {
-    match result.success {
-        true => {
-            let table = result.table.unwrap();
-            println!(
-                "{} 获取完成 ({} 个谱面，{} 个课程组，{} 个课程)",
-                result.name,
-                table.data.charts.len(),
-                table.header.course.len(),
-                table.header.course.iter().flatten().count()
-            );
-        }
-        false => {
-            let error = result.error.unwrap_or_else(|| "未知错误".to_string());
-            println!("{} 获取失败: {}", result.name, error);
-        }
-    }
-}
-
-/// 获取单个难度表
-#[cfg(feature = "reqwest")]
-async fn fetch_single_table(url: &str) -> FetchResult {
-    match fetch_bms_table(url).await {
-        Ok(bms_table) => FetchResult {
-            name: bms_table.header.name.clone(),
-            success: true,
-            error: None,
-            table: Some(bms_table),
-        },
-        Err(e) => FetchResult {
-            name: url.to_string(),
-            success: false,
-            error: Some(e.to_string()),
-            table: None,
-        },
-    }
-}
 
 /// 主函数
 ///
@@ -125,6 +41,69 @@ async fn main() -> Result<()> {
     println!("多难度表并发获取器");
     println!("===================");
 
+    // 显示正在获取数据的信息
+    let urls = table_urls();
+    let url_count = urls.len();
+    println!("正在获取 {url_count} 个难度表...");
+    println!();
+
+    // 创建通道用于事件处理
+    let (tx, mut rx) = mpsc::channel::<FetchResult>(100);
+
+    // 启动事件处理任务
+    let event_handler = tokio::spawn(async move {
+        while let Some(result) = rx.recv().await {
+            match result.table {
+                Ok(table) => {
+                    println!(
+                        "{} 获取完成 ({} 个谱面，{} 个课程组，{} 个课程)",
+                        result.name,
+                        table.data.charts.len(),
+                        table.header.course.len(),
+                        table.header.course.iter().flatten().count()
+                    );
+                }
+                Err(e) => {
+                    println!("{} 获取失败: {}", result.name, e);
+                }
+            }
+        }
+    });
+
+    // 并发获取所有难度表
+    let fetch_tasks: Vec<_> = urls
+        .into_iter()
+        .map(|url| {
+            let tx = tx.clone();
+            tokio::spawn(async move {
+                let result = fetch_single_table(&url).await;
+                let _ = tx.send(result).await;
+            })
+        })
+        .collect();
+
+    // 等待所有获取任务完成
+    for task in fetch_tasks {
+        let _ = task.await;
+    }
+
+    // 关闭发送端，等待事件处理完成
+    drop(tx);
+    let _ = event_handler.await;
+
+    // 显示统计信息
+    println!();
+    println!("获取完成统计:");
+    println!("  并发获取: {url_count} 个难度表");
+    println!("  处理方式: 异步并发");
+    println!("  事件处理: 实时触发");
+
+    Ok(())
+}
+
+#[cfg(feature = "reqwest")]
+/// 获取要使用的URL列表
+fn table_urls() -> Vec<String> {
     // 获取命令行参数
     let args: Vec<String> = env::args().collect();
 
@@ -158,51 +137,32 @@ async fn main() -> Result<()> {
         .map(ToString::to_string)
         .collect()
     };
+    urls
+}
 
-    // 显示正在获取数据的信息
-    let url_count = urls.len();
-    println!("正在获取 {url_count} 个难度表...");
-    println!();
+/// 难度表获取结果
+#[derive(Debug)]
+#[cfg(feature = "reqwest")]
+struct FetchResult {
+    /// 难度表名称
+    name: String,
+    /// 难度表获取结果
+    table: anyhow::Result<BmsTable>,
+}
 
-    // 创建通道用于事件处理
-    let (tx, mut rx) = mpsc::channel(100);
-
-    // 启动事件处理任务
-    let event_handler = tokio::spawn(async move {
-        while let Some(result) = rx.recv().await {
-            handle_fetch_complete(result);
-        }
-    });
-
-    // 并发获取所有难度表
-    let fetch_tasks: Vec<_> = urls
-        .into_iter()
-        .map(|url| {
-            let tx = tx.clone();
-            tokio::spawn(async move {
-                let result = fetch_single_table(&url).await;
-                let _ = tx.send(result).await;
-            })
-        })
-        .collect();
-
-    // 等待所有获取任务完成
-    for task in fetch_tasks {
-        let _ = task.await;
+/// 获取单个难度表
+#[cfg(feature = "reqwest")]
+async fn fetch_single_table(url: &str) -> FetchResult {
+    match fetch_bms_table(url).await {
+        Ok(bms_table) => FetchResult {
+            name: bms_table.header.name.clone(),
+            table: Ok(bms_table),
+        },
+        Err(e) => FetchResult {
+            name: url.to_string(),
+            table: Err(e),
+        },
     }
-
-    // 关闭发送端，等待事件处理完成
-    drop(tx);
-    let _ = event_handler.await;
-
-    // 显示统计信息
-    println!();
-    println!("获取完成统计:");
-    println!("  并发获取: {url_count} 个难度表");
-    println!("  处理方式: 异步并发");
-    println!("  事件处理: 实时触发");
-
-    Ok(())
 }
 
 #[cfg(not(feature = "reqwest"))]
