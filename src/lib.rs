@@ -34,10 +34,10 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+pub mod de;
 pub mod fetch;
 
-use anyhow::Result;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// 顶层 BMS 难度表数据结构。
@@ -70,85 +70,6 @@ pub struct BmsTableHeader {
     pub extra: Value,
 }
 
-impl<'de> Deserialize<'de> for BmsTableHeader {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        // 先把整个JSON作为Value读取，便于提取已知字段并收集额外字段
-        let mut value: Value = Value::deserialize(deserializer)?;
-
-        // name
-        let name = value
-            .get("name")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| serde::de::Error::missing_field("name"))?
-            .to_string();
-
-        // symbol
-        let symbol = value
-            .get("symbol")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| serde::de::Error::missing_field("symbol"))?
-            .to_string();
-
-        // data_url
-        let data_url = value
-            .get("data_url")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| serde::de::Error::missing_field("data_url"))?
-            .to_string();
-
-        // course：支持 Vec<CourseInfo> 和 Vec<Vec<CourseInfo>> 两种格式
-        let course = match value.get("course") {
-            Some(Value::Array(arr)) if !arr.is_empty() => {
-                if matches!(arr.first(), Some(Value::Array(_))) {
-                    // Vec<Vec<CourseInfo>>
-                    serde_json::from_value::<Vec<Vec<CourseInfo>>>(value["course"].clone())
-                        .map_err(serde::de::Error::custom)?
-                } else {
-                    // Vec<CourseInfo> -> 包装为 Vec<Vec<CourseInfo>>
-                    let inner: Vec<CourseInfo> = serde_json::from_value(value["course"].clone())
-                        .map_err(serde::de::Error::custom)?;
-                    vec![inner]
-                }
-            }
-            _ => Vec::new(),
-        };
-
-        // level_order：数字和字符串统一转为字符串
-        let level_order = match value.get("level_order") {
-            Some(Value::Array(arr)) => arr
-                .iter()
-                .map(|v| match v {
-                    Value::Number(n) => n.to_string(),
-                    Value::String(s) => s.clone(),
-                    _ => v.to_string(),
-                })
-                .collect::<Vec<String>>(),
-            _ => Vec::new(),
-        };
-
-        // 收集额外字段：移除已知字段后剩余的内容
-        if let Some(obj) = value.as_object_mut() {
-            obj.remove("name");
-            obj.remove("symbol");
-            obj.remove("data_url");
-            obj.remove("course");
-            obj.remove("level_order");
-        }
-
-        Ok(Self {
-            name,
-            symbol,
-            data_url,
-            course,
-            level_order,
-            extra: value,
-        })
-    }
-}
-
 /// BMS 表数据。
 ///
 /// 仅包含谱面数组。解析时同时兼容纯数组与 `{ charts: [...] }` 两种输入形式。
@@ -158,39 +79,11 @@ pub struct BmsTableData {
     pub charts: Vec<ChartItem>,
 }
 
-impl<'de> Deserialize<'de> for BmsTableData {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        // 支持两种输入：
-        // 1) 直接是数组： [ {...}, {...} ]
-        // 2) 对象包裹： { "charts": [ {...}, {...} ] }
-        let value: Value = Value::deserialize(deserializer)?;
-        match value {
-            Value::Array(arr) => {
-                let charts: Vec<ChartItem> =
-                    serde_json::from_value(Value::Array(arr)).map_err(serde::de::Error::custom)?;
-                Ok(Self { charts })
-            }
-            Value::Object(mut obj) => {
-                let charts_value = obj.remove("charts").unwrap_or(Value::Array(vec![]));
-                let charts: Vec<ChartItem> =
-                    serde_json::from_value(charts_value).map_err(serde::de::Error::custom)?;
-                Ok(Self { charts })
-            }
-            _ => Err(serde::de::Error::custom(
-                "BmsTableData expects array or object with charts",
-            )),
-        }
-    }
-}
-
 /// 课程信息。
 ///
 /// 描述一个课程的名称、约束、奖杯与谱面集合。解析阶段会将 `md5`/`sha256`
 /// 列表自动转换为对应的 `ChartItem`，并为缺失 `level` 的谱面补充默认值 `"0"`。
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct CourseInfo {
     /// 课程名称，如 "Satellite Skill Analyzer 2nd sl0"
     pub name: String,
@@ -205,93 +98,11 @@ pub struct CourseInfo {
     pub charts: Vec<ChartItem>,
 }
 
-impl<'de> Deserialize<'de> for CourseInfo {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(serde::Deserialize)]
-        struct CourseInfoHelper {
-            name: String,
-            #[serde(default)]
-            constraint: Vec<String>,
-            #[serde(default)]
-            trophy: Vec<Trophy>,
-            #[serde(default, rename = "md5")]
-            md5list: Vec<String>,
-            #[serde(default, rename = "sha256")]
-            sha256list: Vec<String>,
-            #[serde(default)]
-            charts: Vec<Value>,
-        }
-
-        let helper = CourseInfoHelper::deserialize(deserializer)?;
-
-        // 处理charts字段，为ChartItem的level字段设置默认值
-        let mut charts = helper
-            .charts
-            .into_iter()
-            .map(|mut chart_value| {
-                if chart_value.get("level").is_none() {
-                    // 如果level字段不存在，添加默认值0
-                    let Some(chart_obj) = chart_value.as_object() else {
-                        return Err(serde::de::Error::custom("chart_value is not an object"));
-                    };
-                    let mut chart_obj = chart_obj.clone();
-                    chart_obj.insert("level".to_string(), Value::String("0".to_string()));
-                    chart_value = Value::Object(chart_obj);
-                }
-                serde_json::from_value(chart_value)
-            })
-            .collect::<Result<Vec<ChartItem>, serde_json::Error>>()
-            .map_err(serde::de::Error::custom)?;
-
-        // 将md5list转换为charts
-        for md5 in &helper.md5list {
-            charts.push(ChartItem {
-                level: "0".to_string(),
-                md5: Some(md5.clone()),
-                sha256: None,
-                title: None,
-                subtitle: None,
-                artist: None,
-                subartist: None,
-                url: None,
-                url_diff: None,
-                extra: Value::Object(serde_json::Map::new()),
-            });
-        }
-
-        // 将sha256list转换为charts
-        for sha256 in &helper.sha256list {
-            charts.push(ChartItem {
-                level: "0".to_string(),
-                md5: None,
-                sha256: Some(sha256.clone()),
-                title: None,
-                subtitle: None,
-                artist: None,
-                subartist: None,
-                url: None,
-                url_diff: None,
-                extra: Value::Object(serde_json::Map::new()),
-            });
-        }
-
-        Ok(Self {
-            name: helper.name,
-            constraint: helper.constraint,
-            trophy: helper.trophy,
-            charts,
-        })
-    }
-}
-
 /// 谱面数据项。
 ///
 /// 描述单个 BMS 文件的相关元数据与资源链接。为空字符串的可选字段在反序列化时会
 /// 自动转换为 `None`，以提升数据质量。
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ChartItem {
     /// 难度等级，如 "0"
     pub level: String,
@@ -315,91 +126,6 @@ pub struct ChartItem {
     pub extra: Value,
 }
 
-impl<'de> Deserialize<'de> for ChartItem {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        // 首先将整个值解析为Value
-        let value: Value = Value::deserialize(deserializer)?;
-
-        // 提取已知字段
-        let level = value
-            .get("level")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| serde::de::Error::missing_field("level"))?
-            .to_string();
-
-        let md5 = value
-            .get("md5")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let sha256 = value
-            .get("sha256")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let title = value
-            .get("title")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let subtitle = value
-            .get("subtitle")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let artist = value
-            .get("artist")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let subartist = value
-            .get("subartist")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let url = value
-            .get("url")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-        let url_diff = value
-            .get("url_diff")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
-
-        // 提取额外数据（除了已知字段之外的所有数据）
-        let mut extra_data = value;
-        if let Some(obj) = extra_data.as_object_mut() {
-            // 移除已知字段，保留额外字段
-            obj.remove("level");
-            obj.remove("md5");
-            obj.remove("sha256");
-            obj.remove("title");
-            obj.remove("subtitle");
-            obj.remove("artist");
-            obj.remove("subartist");
-            obj.remove("url");
-            obj.remove("url_diff");
-        }
-
-        Ok(Self {
-            level,
-            md5,
-            sha256,
-            title,
-            subtitle,
-            artist,
-            subartist,
-            url,
-            url_diff,
-            extra: extra_data,
-        })
-    }
-}
 /// 奖杯信息。
 ///
 /// 定义达成特定奖杯的条件，包括最大 miss 率与最低得分率等要求。
