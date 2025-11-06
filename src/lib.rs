@@ -44,7 +44,7 @@ use serde_json::Value;
 /// 顶层 BMS 难度表数据结构。
 ///
 /// 将表头元数据与谱面数据打包在一起，便于在应用中一次性传递与使用。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BmsTable {
     /// 表头信息与额外字段
     pub header: BmsTableHeader,
