@@ -1,6 +1,7 @@
 //! 反序列化实现模块
 //!
 //! 将所有 `Deserialize` 实现与辅助原始类型集中于此，保持 `lib.rs` 仅包含类型定义。
+#![cfg(feature = "serde")]
 
 use anyhow::Result;
 use serde::{Deserialize, Deserializer};

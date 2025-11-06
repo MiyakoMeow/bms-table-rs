@@ -9,6 +9,7 @@
 //! - 每个难度表获取完成后触发事件
 //! - 显示获取进度和结果
 //! - 错误处理和重试机制
+#![cfg_attr(not(feature = "reqwest"), allow(unused_imports))]
 
 use anyhow::Result;
 #[cfg(feature = "reqwest")]

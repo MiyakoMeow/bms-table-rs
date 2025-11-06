@@ -1,6 +1,7 @@
 //! JSON 解析与数据结构反序列化的单元测试
 //!
 //! 覆盖表头、课程、谱面数据的常见与边界输入，确保反序列化与字段兼容行为正确。
+#![cfg(feature = "serde")]
 
 use bms_table::{BmsTable, BmsTableData, BmsTableHeader, CourseInfo};
 use serde_json::json;

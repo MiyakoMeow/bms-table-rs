@@ -1,3 +1,5 @@
+#![cfg(feature = "serde")]
+
 use bms_table::{BmsTableData, BmsTableHeader, ChartItem};
 
 #[test]

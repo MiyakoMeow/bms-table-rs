@@ -1,4 +1,5 @@
 //! 序列化模块。
+#![cfg(feature = "serde")]
 
 use crate::{BmsTableData, BmsTableHeader, ChartItem};
 use serde::ser::{SerializeMap, SerializeSeq};

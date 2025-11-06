@@ -15,6 +15,7 @@
 //!
 //! ```rust,no_run
 //! # #[tokio::main]
+//! # #[cfg(feature = "reqwest")]
 //! # async fn main() -> anyhow::Result<()> {
 //! use bms_table::fetch::reqwest::fetch_bms_table;
 //!
@@ -22,6 +23,9 @@
 //! println!("{}: {} charts", table.header.name, table.data.charts.len());
 //! # Ok(())
 //! # }
+//! #
+//! # #[cfg(not(feature = "reqwest"))]
+//! # fn main() {}
 //! ```
 //!
 //! # 特性说明
@@ -38,13 +42,16 @@ pub mod de;
 pub mod fetch;
 pub mod ser;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
 use serde_json::Value;
 
 /// 顶层 BMS 难度表数据结构。
 ///
 /// 将表头元数据与谱面数据打包在一起，便于在应用中一次性传递与使用。
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BmsTable {
     /// 表头信息与额外字段
     pub header: BmsTableHeader,
@@ -68,6 +75,7 @@ pub struct BmsTableHeader {
     /// 难度等级顺序，包含数字和字符串
     pub level_order: Vec<String>,
     /// 额外数据（来自header JSON中未识别的字段）
+    #[cfg(feature = "serde")]
     pub extra: Value,
 }
 
@@ -84,18 +92,19 @@ pub struct BmsTableData {
 ///
 /// 描述一个课程的名称、约束、奖杯与谱面集合。解析阶段会将 `md5`/`sha256`
 /// 列表自动转换为对应的 `ChartItem`，并为缺失 `level` 的谱面补充默认值 `"0"`。
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct CourseInfo {
     /// 课程名称，如 "Satellite Skill Analyzer 2nd sl0"
     pub name: String,
     /// 约束条件列表，如 ["grade_mirror", "gauge_lr2", "ln"]
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub constraint: Vec<String>,
     /// 奖杯信息列表，定义不同等级的奖杯要求
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub trophy: Vec<Trophy>,
     /// 谱面数据列表，包含该课程的所有谱面信息
-    #[serde(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub charts: Vec<ChartItem>,
 }
 
@@ -124,13 +133,15 @@ pub struct ChartItem {
     /// 差分文件下载链接（可选）
     pub url_diff: Option<String>,
     /// 额外数据
+    #[cfg(feature = "serde")]
     pub extra: Value,
 }
 
 /// 奖杯信息。
 ///
 /// 定义达成特定奖杯的条件，包括最大 miss 率与最低得分率等要求。
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Trophy {
     /// 奖杯名称，如 "silvermedal" 或 "goldmedal"
     pub name: String,
