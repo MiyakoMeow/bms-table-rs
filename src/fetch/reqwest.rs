@@ -11,7 +11,6 @@
 //! - 完整的BMS表格数据获取流程
 
 use anyhow::{anyhow, Result};
-use scraper::{Html, Selector};
 use serde_json::Value;
 use url::Url;
 
@@ -27,8 +26,8 @@ pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
         .text()
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    let (header_url, header_json) = match crate::get_web_header_json_value(&web_response)? {
-        crate::HeaderQueryContent::Url(header_url_string) => {
+    let (header_url, header_json) = match crate::fetch::get_web_header_json_value(&web_response)? {
+        crate::fetch::HeaderQueryContent::Url(header_url_string) => {
             let header_url = web_url.join(&header_url_string)?;
             let header_response = reqwest::Client::new()
                 .get(header_url.clone())
@@ -39,8 +38,8 @@ pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
                 .text()
                 .await
                 .map_err(|e| anyhow!("When parsing header response: {e}"))?;
-            let crate::HeaderQueryContent::Json(header_json) =
-                crate::get_web_header_json_value(&header_response_string)?
+            let crate::fetch::HeaderQueryContent::Json(header_json) =
+                crate::fetch::get_web_header_json_value(&header_response_string)?
             else {
                 return Err(anyhow!(
                     "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
@@ -48,7 +47,7 @@ pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
             };
             (header_url, header_json)
         }
-        crate::HeaderQueryContent::Json(value) => (web_url, value),
+        crate::fetch::HeaderQueryContent::Json(value) => (web_url, value),
     };
     let data_url_str = header_json
         .get("data_url")
@@ -90,35 +89,10 @@ mod network_tests {
     }
 }
 
-/// 从HTML页面内容中，提取bmstable字段指向的JSON文件URL
-pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
-    let document = Html::parse_document(html_content);
-
-    // 查找所有meta标签
-    let Ok(meta_selector) = Selector::parse("meta") else {
-        return Err(anyhow!("未找到meta标签"));
-    };
-
-    for element in document.select(&meta_selector) {
-        // 检查是否有name属性为"bmstable"的meta标签
-        if let Some(name_attr) = element.value().attr("name") {
-            if name_attr == "bmstable" {
-                // 获取content属性
-                if let Some(content_attr) = element.value().attr("content") {
-                    if !content_attr.is_empty() {
-                        return Ok(content_attr.to_string());
-                    }
-                }
-            }
-        }
-    }
-
-    Err(anyhow!("未找到bmstable字段"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fetch::extract_bmstable_url;
 
     /// 测试解析器创建功能
     #[test]

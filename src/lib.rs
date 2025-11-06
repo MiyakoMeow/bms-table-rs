@@ -12,8 +12,6 @@ use anyhow::Result;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::fetch::reqwest::extract_bmstable_url;
-
 /// BMS难度表数据，看这一个就够了
 #[derive(Debug, Clone, PartialEq)]
 pub struct BmsTable {
@@ -398,26 +396,6 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
 ///     Ok(())
 /// }
 /// ```
-
-/// [`get_web_header_json_value`]的返回类型
-pub enum HeaderQueryContent {
-    /// 注意：可能解析出相对或绝对Url，建议使用[`Url::join`]。
-    Url(String),
-    /// Json树
-    Json(Value),
-}
-
-/// 从相应数据中提取Json树（Json内容）或Header地址（HTML内容）
-pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQueryContent> {
-    // 先尝试按 JSON 解析；失败则当作 HTML 提取 bmstable URL
-    match serde_json::from_str::<Value>(response_str) {
-        Ok(header_json) => Ok(HeaderQueryContent::Json(header_json)),
-        Err(_) => {
-            let bmstable_url = extract_bmstable_url(response_str)?;
-            Ok(HeaderQueryContent::Url(bmstable_url))
-        }
-    }
-}
 
 /// 示例：通过反序列化生成 `BmsTable`
 ///
