@@ -37,7 +37,7 @@
 pub mod fetch;
 
 use anyhow::Result;
-use serde::Serialize;
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 /// 顶层 BMS 难度表数据结构。
@@ -67,13 +67,13 @@ pub struct BmsTableHeader {
     /// 难度等级顺序，包含数字和字符串
     pub level_order: Vec<String>,
     /// 额外数据（来自header JSON中未识别的字段）
-    pub extra: serde_json::Value,
+    pub extra: Value,
 }
 
-impl<'de> serde::Deserialize<'de> for BmsTableHeader {
+impl<'de> Deserialize<'de> for BmsTableHeader {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         // 先把整个JSON作为Value读取，便于提取已知字段并收集额外字段
         let mut value: Value = Value::deserialize(deserializer)?;
@@ -158,10 +158,10 @@ pub struct BmsTableData {
     pub charts: Vec<ChartItem>,
 }
 
-impl<'de> serde::Deserialize<'de> for BmsTableData {
+impl<'de> Deserialize<'de> for BmsTableData {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         // 支持两种输入：
         // 1) 直接是数组： [ {...}, {...} ]
@@ -205,10 +205,10 @@ pub struct CourseInfo {
     pub charts: Vec<ChartItem>,
 }
 
-impl<'de> serde::Deserialize<'de> for CourseInfo {
+impl<'de> Deserialize<'de> for CourseInfo {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         #[derive(serde::Deserialize)]
         struct CourseInfoHelper {
@@ -238,11 +238,8 @@ impl<'de> serde::Deserialize<'de> for CourseInfo {
                         return Err(serde::de::Error::custom("chart_value is not an object"));
                     };
                     let mut chart_obj = chart_obj.clone();
-                    chart_obj.insert(
-                        "level".to_string(),
-                        serde_json::Value::String("0".to_string()),
-                    );
-                    chart_value = serde_json::Value::Object(chart_obj);
+                    chart_obj.insert("level".to_string(), Value::String("0".to_string()));
+                    chart_value = Value::Object(chart_obj);
                 }
                 serde_json::from_value(chart_value)
             })
@@ -261,7 +258,7 @@ impl<'de> serde::Deserialize<'de> for CourseInfo {
                 subartist: None,
                 url: None,
                 url_diff: None,
-                extra: serde_json::Value::Object(serde_json::Map::new()),
+                extra: Value::Object(serde_json::Map::new()),
             });
         }
 
@@ -277,7 +274,7 @@ impl<'de> serde::Deserialize<'de> for CourseInfo {
                 subartist: None,
                 url: None,
                 url_diff: None,
-                extra: serde_json::Value::Object(serde_json::Map::new()),
+                extra: Value::Object(serde_json::Map::new()),
             });
         }
 
@@ -318,10 +315,10 @@ pub struct ChartItem {
     pub extra: Value,
 }
 
-impl<'de> serde::Deserialize<'de> for ChartItem {
+impl<'de> Deserialize<'de> for ChartItem {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         // 首先将整个值解析为Value
         let value: Value = Value::deserialize(deserializer)?;
@@ -406,7 +403,7 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
 /// 奖杯信息。
 ///
 /// 定义达成特定奖杯的条件，包括最大 miss 率与最低得分率等要求。
-#[derive(Debug, Clone, serde::Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Trophy {
     /// 奖杯名称，如 "silvermedal" 或 "goldmedal"
     pub name: String,
