@@ -1,0 +1,228 @@
+use bms_table::{BmsTable, BmsTableData, BmsTableHeader};
+use serde_json::json;
+use url::Url;
+
+// 来自 src/lib.rs 的单元测试迁移到集成测试
+
+#[test]
+fn test_build_bms_table_from_json() {
+    let header_json = json!({
+        "name": "Test Table",
+        "symbol": "test",
+        "data_url": "charts.json",
+        "course": [
+            [
+                {
+                    "name": "Test Course",
+                    "constraint": ["grade_mirror"],
+                    "trophy": [
+                        {
+                            "name": "goldmedal",
+                            "missrate": 1.0,
+                            "scorerate": 90.0
+                        }
+                    ],
+                    "md5": ["test_md5_1", "test_md5_2"]
+                }
+            ]
+        ],
+        "level_order": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, "!i"],
+        "extra_field": "extra_value",
+        "another_field": 123
+    });
+    let data_json = json!([
+        {
+            "level": "1",
+            "id": 1,
+            "md5": "test_md5_1",
+            "sha256": "test_sha256_1",
+            "title": "Test Song",
+            "artist": "Test Artist",
+            "url": "https://example.com/test.bms",
+            "url_diff": "https://example.com/test_diff.bms",
+            "custom_field": "custom_value",
+            "rating": 5.0
+        }
+    ]);
+    let header: BmsTableHeader = serde_json::from_value(header_json).unwrap();
+    let data: BmsTableData = serde_json::from_value(data_json).unwrap();
+    let bms_table = BmsTable { header, data };
+    assert_eq!(bms_table.header.name, "Test Table");
+    assert_eq!(bms_table.header.symbol, "test");
+    assert_eq!(bms_table.header.data_url, "charts.json");
+    assert_eq!(bms_table.header.course.len(), 1);
+    assert_eq!(bms_table.data.charts.len(), 1);
+
+    // 测试课程信息
+    let course = &bms_table.header.course[0][0];
+    assert_eq!(course.name, "Test Course");
+    assert_eq!(course.constraint, vec!["grade_mirror"]);
+    assert_eq!(course.trophy.len(), 1);
+    assert_eq!(course.trophy[0].name, "goldmedal");
+    assert_eq!(course.trophy[0].missrate, 1.0);
+    assert_eq!(course.trophy[0].scorerate, 90.0);
+    assert_eq!(course.charts.len(), 2);
+    assert_eq!(course.charts[0].md5, Some("test_md5_1".to_string()));
+    assert_eq!(course.charts[1].md5, Some("test_md5_2".to_string()));
+
+    // 测试谱面数据
+    let score = &bms_table.data.charts[0];
+    assert_eq!(score.level, "1");
+    assert_eq!(score.md5, Some("test_md5_1".to_string()));
+    assert_eq!(score.sha256, Some("test_sha256_1".to_string()));
+    assert_eq!(score.title, Some("Test Song".to_string()));
+    assert_eq!(score.artist, Some("Test Artist".to_string()));
+    assert_eq!(score.url, Some("https://example.com/test.bms".to_string()));
+    assert_eq!(
+        score.url_diff,
+        Some("https://example.com/test_diff.bms".to_string())
+    );
+
+    // 测试额外数据
+    // 检查header的额外数据
+    assert_eq!(bms_table.header.extra["extra_field"], "extra_value");
+    assert_eq!(bms_table.header.extra["another_field"], 123);
+    assert!(bms_table.header.extra.get("name").is_none());
+
+    // 检查score的额外数据
+    assert_eq!(score.extra["custom_field"], "custom_value");
+    assert_eq!(score.extra["rating"], 5.0);
+    assert!(score.extra.get("level").is_none());
+
+    // 测试level_order
+    assert_eq!(bms_table.header.level_order.len(), 22);
+    assert_eq!(bms_table.header.level_order[0], "0");
+    assert_eq!(bms_table.header.level_order[20], "20");
+    assert_eq!(bms_table.header.level_order[21], "!i");
+    assert!(bms_table.header.extra.get("level_order").is_none());
+}
+
+#[test]
+fn test_build_bms_table_with_empty_fields() {
+    let header_json = json!({
+        "name": "Test Table",
+        "symbol": "test",
+        "data_url": "charts.json",
+        "course": []
+    });
+    let data_json = json!([
+        {
+            "level": "1",
+            "id": 1,
+            "md5": "",
+            "sha256": "",
+            "title": "",
+            "artist": "",
+            "url": "",
+            "url_diff": ""
+        }
+    ]);
+    let header: BmsTableHeader = serde_json::from_value(header_json).unwrap();
+    let data: BmsTableData = serde_json::from_value(data_json).unwrap();
+    let bms_table = BmsTable { header, data };
+    let score = &bms_table.data.charts[0];
+    assert_eq!(score.level, "1");
+    assert_eq!(score.md5, None);
+    assert_eq!(score.sha256, None);
+    assert_eq!(score.title, None);
+    assert_eq!(score.artist, None);
+    assert_eq!(score.url, None);
+    assert_eq!(score.url_diff, None);
+}
+
+#[test]
+fn test_bms_table_creation() {
+    let header = BmsTableHeader {
+        name: "Test Table".to_string(),
+        symbol: "test".to_string(),
+        data_url: "https://example.com/charts.json".to_string(),
+        course: vec![],
+        level_order: vec!["0".to_string(), "1".to_string()],
+        extra: json!({}),
+    };
+    let data = BmsTableData { charts: vec![] };
+    let bms_table = BmsTable { header, data };
+
+    assert_eq!(bms_table.header.name, "Test Table");
+    assert_eq!(bms_table.header.symbol, "test");
+    assert_eq!(bms_table.header.course.len(), 0);
+    assert_eq!(bms_table.data.charts.len(), 0);
+    assert_eq!(bms_table.header.level_order.len(), 2);
+}
+
+#[test]
+fn test_bms_table_partial_eq() {
+    let header1 = BmsTableHeader {
+        name: "Test Table".to_string(),
+        symbol: "test".to_string(),
+        data_url: "https://example.com/charts.json".to_string(),
+        course: vec![],
+        level_order: vec!["0".to_string(), "1".to_string()],
+        extra: json!({}),
+    };
+    let data1 = BmsTableData { charts: vec![] };
+    let table1 = BmsTable {
+        header: header1.clone(),
+        data: data1,
+    };
+
+    let header2 = header1.clone();
+    let data2 = BmsTableData { charts: vec![] };
+    let table2 = BmsTable {
+        header: header2,
+        data: data2,
+    };
+
+    assert_eq!(table1, table2);
+}
+
+#[test]
+fn test_build_bms_table_invalid_json() {
+    let header_json = json!({
+        "name": "Test Table",
+        "symbol": "test",
+        "data_url": "charts.json"
+        // 缺少必要的字段
+    });
+    let data_json = json!([
+        {
+            "level": "1",
+            "id": 1
+            // 缺少必要的字段
+        }
+    ]);
+    let header: BmsTableHeader = serde_json::from_value(header_json).unwrap();
+    let data: BmsTableData = serde_json::from_value(data_json).unwrap();
+    let _bms_table = BmsTable { header, data };
+    // 这个测试应该通过，因为缺少的字段有默认值
+}
+
+#[test]
+fn test_url_parsing() {
+    let base_url = "https://example.com/table.html";
+    let bmstable_url = "header.json";
+
+    let base_url_obj = Url::parse(base_url).unwrap();
+    let header_url = base_url_obj.join(bmstable_url).unwrap();
+
+    assert_eq!(header_url.as_str(), "https://example.com/header.json");
+}
+
+#[test]
+fn test_json_serialization() {
+    // 测试库内的BmsTableHeader序列化/反序列化
+    let header = bms_table::BmsTableHeader {
+        name: "Test Table".to_string(),
+        symbol: "test".to_string(),
+        data_url: "charts.json".to_string(),
+        course: vec![],
+        level_order: vec!["0".to_string(), "1".to_string(), "!i".to_string()],
+        extra: serde_json::json!({}),
+    };
+
+    let json = serde_json::to_string(&header).unwrap();
+    let parsed: bms_table::BmsTableHeader = serde_json::from_str(&json).unwrap();
+    let mut expected = header.clone();
+    expected.extra = serde_json::json!({ "extra": {} });
+    assert_eq!(expected, parsed);
+}
