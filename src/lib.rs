@@ -1,5 +1,33 @@
-//! 示例程序
+//! BMS 难度表数据获取与解析库
 //!
+//! 提供从网页或 JSON 源构建完整的 BMS 难度表数据结构，涵盖表头、课程、奖杯与谱面条目等。
+//! 结合可选特性实现网络抓取与 HTML 解析，适用于 CLI 工具、服务端程序或数据处理流水线。
+//!
+//! # 功能概述
+//!
+//! - 解析表头 JSON，支持收集未识别的额外字段
+//! - 解析谱面数据，兼容数组或 `{ charts: [...] }` 两种格式
+//! - 课程数据支持从 `md5`/`sha256` 列表自动转换为谱面条目
+//! - 可选特性 `reqwest` 提供一站式网络获取接口
+//! - 可选特性 `scraper` 支持从 HTML `<meta name="bmstable">` 提取头部 JSON 地址
+//!
+//! # 快速上手
+//!
+//! ```rust,no_run
+//! # #[tokio::main]
+//! # async fn main() -> anyhow::Result<()> {
+//! use bms_table::fetch::reqwest::fetch_bms_table;
+//!
+//! let table = fetch_bms_table("https://stellabms.xyz/sl/table.html").await?;
+//! println!("{}: {} charts", table.header.name, table.data.charts.len());
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # 特性说明
+//!
+//! - `reqwest`：启用网络获取功能（默认启用）
+//! - `scraper`：启用 HTML 解析（用于从页面提取 bmstable 头部地址）
 
 #![warn(missing_docs)]
 #![warn(clippy::must_use_candidate)]
@@ -12,7 +40,9 @@ use anyhow::Result;
 use serde::Serialize;
 use serde_json::Value;
 
-/// BMS难度表数据，看这一个就够了
+/// 顶层 BMS 难度表数据结构。
+///
+/// 将表头元数据与谱面数据打包在一起，便于在应用中一次性传递与使用。
 #[derive(Debug, Clone, PartialEq)]
 pub struct BmsTable {
     /// 表头信息与额外字段
@@ -21,7 +51,9 @@ pub struct BmsTable {
     pub data: BmsTableData,
 }
 
-/// BMS表头信息
+/// BMS 表头信息。
+///
+/// 该结构严格解析常见字段，并把未识别的字段保存在 `extra` 中，保证向前兼容。
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct BmsTableHeader {
     /// 表格名称，如 "Satellite"
@@ -117,7 +149,9 @@ impl<'de> serde::Deserialize<'de> for BmsTableHeader {
     }
 }
 
-/// BMS表数据
+/// BMS 表数据。
+///
+/// 仅包含谱面数组。解析时同时兼容纯数组与 `{ charts: [...] }` 两种输入形式。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BmsTableData {
     /// 谱面数据
@@ -152,9 +186,10 @@ impl<'de> serde::Deserialize<'de> for BmsTableData {
     }
 }
 
-/// 课程信息
+/// 课程信息。
 ///
-/// 定义了一个BMS课程的所有相关信息，包括约束条件、奖杯要求和谱面数据。
+/// 描述一个课程的名称、约束、奖杯与谱面集合。解析阶段会将 `md5`/`sha256`
+/// 列表自动转换为对应的 `ChartItem`，并为缺失 `level` 的谱面补充默认值 `"0"`。
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct CourseInfo {
     /// 课程名称，如 "Satellite Skill Analyzer 2nd sl0"
@@ -255,10 +290,10 @@ impl<'de> serde::Deserialize<'de> for CourseInfo {
     }
 }
 
-/// 谱面数据项
+/// 谱面数据项。
 ///
-/// 表示一个BMS文件的谱面数据，包含文件信息和下载链接。
-/// 所有字段都是可选的，因为不同的BMS表格可能有不同的字段。
+/// 描述单个 BMS 文件的相关元数据与资源链接。为空字符串的可选字段在反序列化时会
+/// 自动转换为 `None`，以提升数据质量。
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ChartItem {
     /// 难度等级，如 "0"
@@ -368,9 +403,9 @@ impl<'de> serde::Deserialize<'de> for ChartItem {
         })
     }
 }
-/// 奖杯信息
+/// 奖杯信息。
 ///
-/// 定义了获得特定奖杯需要达到的谱面要求。
+/// 定义达成特定奖杯的条件，包括最大 miss 率与最低得分率等要求。
 #[derive(Debug, Clone, serde::Deserialize, Serialize, PartialEq)]
 pub struct Trophy {
     /// 奖杯名称，如 "silvermedal" 或 "goldmedal"

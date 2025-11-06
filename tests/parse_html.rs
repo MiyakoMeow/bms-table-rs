@@ -1,4 +1,7 @@
 #![cfg(feature = "scraper")]
+//! HTML 解析与 bmstable URL 提取的单元测试
+//!
+//! 验证从 `<meta name="bmstable">` 中读取 `content` 的逻辑，以及相对地址的拼接。
 
 use bms_table::fetch::extract_bmstable_url;
 use url::Url;

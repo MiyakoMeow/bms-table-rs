@@ -30,22 +30,22 @@
 //! 正在获取BMS表格数据...
 //! URL: https://stellabms.xyz/sl/table.html
 //!
-//! ✅ 成功获取BMS表格数据!
+//! 成功获取BMS表格数据
 //!
-//! 📋 表格信息:
+//! 表格信息:
 //!   名称: Satellite
 //!   符号: sl
 //!   数据URL: score.json
 //!   课程数量: 1
 //!   谱面数据数量: 4
 //!
-//! 🎵 课程信息:
+//! 课程信息:
 //!   - Satellite Skill Analyzer 2nd sl0
 //!     约束: ["grade_mirror", "gauge_lr2", "ln"]
 //!     奖杯: [Trophy { name: "silvermedal", missrate: 5.0, scorerate: 70.0 }]
 //!     MD5数量: 4
 //!
-//! 📊 谱面数据 (前5个):
+//! 谱面数据 (前5个):
 //!   1. "Fresco" [ANOTHER] - Lemi. obj:69 de 74
 //!      MD5: 176c2b2db4efd66cf186caae7923d477
 //!      URL: https://venue.bmssearch.net/bmsshuin3/75
@@ -96,15 +96,15 @@ async fn main() -> Result<()> {
 
     // 获取完整的BMS表格数据
     let bms_table = fetch_bms_table(base_url).await.unwrap_or_else(|e| {
-        println!("❌ 获取BMS表格数据失败: {e}");
+        println!("获取BMS表格数据失败: {e}");
         std::process::exit(1);
     });
 
     // 显示成功信息
-    println!("\n✅ 成功获取BMS表格数据!");
+    println!("\n成功获取BMS表格数据");
 
     // 显示表格基本信息
-    println!("\n📋 表格信息:");
+    println!("\n表格信息:");
     println!("  名称: {}", bms_table.header.name);
     println!("  符号: {}", bms_table.header.symbol);
     println!("  数据URL: {}", bms_table.header.data_url);
@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
     println!("  谱面数据数量: {}", bms_table.data.charts.len());
 
     // 显示课程信息
-    println!("\n🎵 课程信息:");
+    println!("\n课程信息:");
     for course in bms_table.header.course.iter().flatten() {
         println!("  - {}", course.name);
         println!("    约束: {:?}", course.constraint);
@@ -121,7 +121,7 @@ async fn main() -> Result<()> {
     }
 
     // 显示前几个谱面数据
-    println!("\n📊 谱面数据 (前5个):");
+    println!("\n谱面数据 (前5个):");
     for (i, score) in bms_table.data.charts.iter().take(5).enumerate() {
         println!(
             "  {}. {} - {}",
@@ -135,7 +135,7 @@ async fn main() -> Result<()> {
 
     // 演示查找功能
     if let Some(first_score) = bms_table.data.charts.first() {
-        println!("\n🔍 演示查找功能:");
+        println!("\n演示查找功能:");
         if let Some(found) = bms_table
             .data
             .charts

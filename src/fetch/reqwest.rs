@@ -1,21 +1,43 @@
-//! BMS表格数据获取模块
+//! 基于 `reqwest` 的网络获取模块
 //!
-//! 这个模块提供了从BMS表格网站获取和解析数据的功能。
-//! 支持从HTML页面提取bmstable字段，解析JSON格式的表格头信息和谱面数据。
+//! 提供一站式从网页或头部 JSON 源拉取并解析 BMS 难度表的能力：
+//! - 获取网页并从 HTML 提取 bmstable 头部地址（如有）；
+//! - 下载并解析头部 JSON；
+//! - 根据头部中的 `data_url` 下载谱面数据并解析；
+//! - 返回包含表头与谱面集合的 `BmsTable`。
 //!
-//! # 主要功能
+//! # 示例
 //!
-//! - 从HTML页面中提取bmstable字段指向的JSON文件URL
-//! - 解析BMS表格头信息（包含课程、奖杯等元数据）
-//! - 获取和解析谱面数据（包含歌曲信息、下载链接等）
-//! - 完整的BMS表格数据获取流程
+//! ```rust,no_run
+//! # #[tokio::main]
+//! # async fn main() -> anyhow::Result<()> {
+//! use bms_table::fetch::reqwest::fetch_bms_table;
+//! let table = fetch_bms_table("https://stellabms.xyz/sl/table.html").await?;
+//! assert!(!table.data.charts.is_empty());
+//! # Ok(())
+//! # }
+//! ```
 #![cfg(feature = "reqwest")]
 
 use anyhow::{anyhow, Result};
 use serde_json::Value;
 use url::Url;
 
-/// 基于 reqwest 的高层获取函数
+/// 从网页或头部 JSON 源拉取并解析完整的 BMS 难度表。
+///
+/// # 参数
+///
+/// - `web_url`：网页地址或直接指向头部 JSON 的地址。
+///
+/// # 返回
+///
+/// 解析后的 [`crate::BmsTable`]，包含表头与谱面数据。
+///
+/// # 错误
+///
+/// - 网络请求失败（连接失败、超时等）
+/// - 响应内容无法解析为 HTML/JSON 或结构不符合预期
+/// - 头部 JSON 未包含 `data_url` 字段或其类型不正确
 pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
     let web_url = Url::parse(web_url)?;
     let web_response = reqwest::Client::new()

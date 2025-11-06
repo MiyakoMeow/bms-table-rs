@@ -1,206 +1,64 @@
-# BMS表格数据获取器
+# BMS 难度表数据获取与解析库
 
-这是一个用Rust编写的BMS表格数据获取和解析工具，能够从指定的网站获取BMS表格的HTML和JSON数据，并解析其中的结构信息。
+使用 Rust 实现的 BMS 难度表数据获取与解析库。支持从网页或头部 JSON 构建完整数据结构，覆盖表头、课程、奖杯与谱面条目等。
 
 ## 功能特性
 
-- 🔍 从HTML页面中提取bmstable字段
-- 📊 解析BMS表格头信息JSON
-- 🎵 获取和解析谱面数据
-- 🔎 支持通过MD5和SHA256查找谱面数据
-- 📋 课程信息管理和查询
-- 🏆 奖杯信息解析
-- 🚀 提供多种异步API接口
+- 从 HTML `<meta name="bmstable">` 提取头部 JSON 地址（启用 `scraper` 特性）
+- 解析表头 JSON 为 `BmsTableHeader`，未识别字段保留在 `extra`
+- 解析谱面数据为 `BmsTableData`，兼容数组与 `{ charts: [...] }` 两种格式
+- 将课程中的 `md5`/`sha256` 列表自动转换为 `ChartItem`
+- 一站式网络获取 API（启用 `reqwest` 特性）
 
-## 项目结构
+默认启用 `reqwest` 特性；如需 HTML 解析，请启用 `scraper` 特性（`reqwest` 特性已包含 `scraper`）。
 
-```bash
-bms-table/
-├── Cargo.toml          # 项目配置和依赖
-├── src/
-│   ├── lib.rs          # 核心库代码和API接口
-│   ├── fetch.rs        # 数据获取和解析模块
-│   └── main.rs         # 示例程序
-├── examples/
-│   └── demo.rs         # 函数演示示例
-└── README.md           # 项目说明
-```
-
-## 数据结构
-
-### BmsTable
-
-完整的BMS表格数据，包含：
-
-- `header`: 表头信息与额外字段
-- `data`: 表数据（谱面列表）
-
-### BmsTableHeader
-
-BMS表格的头信息，包含：
-
-- `name`: 表格名称
-- `symbol`: 表格符号
-- `data_url`: 谱面数据文件的URL字符串（原样保存，可能为相对或绝对）
-- `course`: 课程信息数组
-- `level_order`: 难度等级顺序
-- `extra`: 额外字段（来源于header JSON未识别字段）
-
-### CourseInfo
-
-课程信息，包含：
-
-- `name`: 课程名称
-- `constraint`: 约束条件
-- `trophy`: 奖杯信息
-- `charts`: 谱面数据列表（包含该课程的所有谱面信息）
-
-### ChartItem
-
-谱面数据项，包含：
-
-- `level`: 难度等级
-- `md5`: MD5哈希（可选）
-- `sha256`: SHA256哈希（可选）
-- `title`: 歌曲标题（可选）
-- `subtitle`: 歌曲副标题（可选）
-- `artist`: 艺术家（可选）
-- `subartist`: 副艺术家（可选）
-- `url`: 下载链接（可选）
-- `url_diff`: 差分文件链接（可选）
-- `extra`: 额外数据
-
-## 使用方法
-
-### 作为库使用
-
-#### 方法1: 使用fetch_bms_table（推荐方式）
+## 快速开始
 
 ```rust
-use bms_table::fetch_bms_table;
 use anyhow::Result;
+use bms_table::fetch::reqwest::fetch_bms_table;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let base_url = "https://stellabms.xyz/sl/table.html";
-    
-    // 获取完整的BMS表格数据
-    let bms_table = fetch_bms_table(base_url).await?;
-    
-    println!("表格名称: {}", bms_table.header.name);
-    println!("谱面数据数量: {}", bms_table.data.charts.len());
-    
+    let url = "https://stellabms.xyz/sl/table.html";
+    let table = fetch_bms_table(url).await?;
+    println!("{}: {} charts", table.header.name, table.data.charts.len());
     Ok(())
 }
 ```
 
-#### 方法2: 使用自己的Client（高级用法）
+## 项目结构
 
-直接看`fetch_bms_table`的源代码就可以了。
-
-### 运行示例程序
-
-```bash
-# 运行主程序
-cargo run
-
-# 运行函数演示示例
-cargo run --example demo
+```text
+bms-table-rs/
+├── Cargo.toml
+├── src/
+│   ├── lib.rs              # 核心数据结构与crate级文档
+│   ├── fetch.rs            # HTML解析与响应解析（需scraper特性）
+│   └── fetch/reqwest.rs    # 网络获取接口（默认启用reqwest特性）
+├── examples/
+│   ├── demo.rs             # 单表获取与展示
+│   └── multi_fetch.rs      # 并发获取多个难度表
+└── tests/                  # 单元测试
 ```
 
-## 依赖项
+## API 概览
 
-- `reqwest` - HTTP客户端
-- `tokio` - 异步运行时
-- `serde` - 序列化/反序列化
-- `scraper` - HTML解析
-- `anyhow` - 错误处理
-- `url` - URL处理
-
-## 构建和测试
-
-```bash
-# 构建项目
-cargo build
-
-# 运行测试
-cargo test
-
-# 运行示例程序
-cargo run
-
-# 运行函数演示
-cargo run --example demo
-```
-
-## 示例输出
-
-运行示例程序会显示类似以下的输出：
-
-```
-BMS表格数据获取器
-==================
-正在获取BMS表格数据...
-URL: https://stellabms.xyz/sl/table.html
-
-✅ 成功获取BMS表格数据!
-
-📋 表格信息:
-  名称: Satellite
-  符号: sl
-  数据URL: score.json
-  课程数量: 13
-  谱面数据数量: 1986
-
-🎵 课程信息:
-  - Satellite Skill Analyzer 2nd sl0
-    约束: ["grade_mirror", "gauge_lr2", "ln"]
-    奖杯: [Trophy { name: "silvermedal", missrate: 5.0, scorerate: 70.0 }, Trophy { name: "goldmedal", missrate: 2.5, scorerate: 85.0 }]
-    谱面数量: 4
-  - Satellite Skill Analyzer 2nd sl1
-    约束: ["grade_mirror", "gauge_lr2", "ln"]
-    奖杯: [Trophy { name: "silvermedal", missrate: 5.0, scorerate: 70.0 }, Trophy { name: "goldmedal", missrate: 2.5, scorerate: 85.0 }]
-    谱面数量: 4
-  ... (更多课程)
-
-📊 谱面数据 (前5个):
-  1. "Fresco" [ANOTHER] - Lemi. obj:69 de 74
-     MD5: 176c2b2db4efd66cf186caae7923d477
-     URL: https://venue.bmssearch.net/bmsshuin3/75
-  2. -Never ending journey- [BLACKANOTHER] - SOMON
-  3. -終天- [BLACK ANOTHER] - SOMON
-  4. 2anyFirst [7-A] - Sobrem
-     MD5: f5456ea7a63431ce7575d2583fcf9c68
-     URL: http://manbow.nothing.sh/event/event.cgi?action=More_def&num=209&event=127
-
-🔍 演示查找功能:
-  通过MD5找到: "Fresco" [ANOTHER] - Lemi. obj:69 de 74
-  通过SHA256找到: "Fresco" [ANOTHER] - Lemi. obj:69 de 74
-```
+- `BmsTable`：顶层数据结构，包含 `header` 与 `data`
+- `BmsTableHeader`：表头元数据；未识别字段保留在 `extra`
+- `BmsTableData`：谱面数据数组
+- `CourseInfo`：课程信息，支持 `md5`/`sha256` 列表自动转换为谱面
+- `ChartItem`：谱面条目，空字符串在反序列化时自动转换为 `None`
+- `Trophy`：奖杯要求（最大 miss 率、最低得分率）
+- `fetch::reqwest::fetch_bms_table(url)`：从网页或头部 JSON 源拉取并解析完整表
+- `fetch::get_web_header_json_value(s)`：将响应字符串解析为头部 JSON 或其 URL
+- `fetch::extract_bmstable_url(html)`：从 HTML 中提取 bmstable 头部地址
 
 ## 特性说明
 
-### 空字符串处理
+- `reqwest`：网络获取接口（默认启用）
+- `scraper`：HTML 解析与头部地址提取
 
-ChartItem中的可选字段在解析时会自动将空字符串转换为None，确保数据的准确性。
+## 最低支持的 Rust 版本
 
-### 异步支持
-
-所有API都是异步的，支持高效的并发操作。
-
-### 数据转换
-
-CourseInfo结构体支持多种数据格式的自动转换：
-
-- 如果JSON中包含 `md5` 字段（MD5哈希列表），会自动转换为 `charts` 中的 `ChartItem`
-- 如果JSON中包含 `sha256` 字段（SHA256哈希列表），会自动转换为 `charts` 中的 `ChartItem`
-- 转换后的 `ChartItem` 使用默认的 `level: "0"`，其他字段为 `None`
-
-### 错误处理
-
-使用anyhow进行统一的错误处理，提供清晰的错误信息。
-
-## 许可证
-
-MIT License
-
+- `rustc 1.78.0`
