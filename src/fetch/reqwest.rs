@@ -24,8 +24,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use url::Url;
 
-use crate::BmsTableIndexItem;
-use crate::BmsTableRaw;
+use crate::{BmsTable, BmsTableIndexItem, BmsTableRaw};
 
 /// 从网页或头部 JSON 源拉取并解析完整的 BMS 难度表。
 ///
@@ -42,7 +41,7 @@ use crate::BmsTableRaw;
 /// - 网络请求失败（连接失败、超时等）
 /// - 响应内容无法解析为 HTML/JSON 或结构不符合预期
 /// - 头部 JSON 未包含 `data_url` 字段或其类型不正确
-pub async fn fetch_bms_table_full(web_url: &str) -> Result<(crate::BmsTable, BmsTableRaw)> {
+pub async fn fetch_bms_table_full(web_url: &str) -> Result<(BmsTable, BmsTableRaw)> {
     let web_url = Url::parse(web_url)?;
     let web_response = reqwest::Client::new()
         .get(web_url.clone())
@@ -100,7 +99,7 @@ pub async fn fetch_bms_table_full(web_url: &str) -> Result<(crate::BmsTable, Bms
     let data: crate::BmsTableData =
         serde_json::from_value(data_json).map_err(|e| anyhow!("When parsing data json: {e}"))?;
     Ok((
-        crate::BmsTable { header, data },
+        BmsTable { header, data },
         BmsTableRaw {
             header_raw,
             data_raw: data_response,
@@ -111,7 +110,7 @@ pub async fn fetch_bms_table_full(web_url: &str) -> Result<(crate::BmsTable, Bms
 /// 从网页或头部 JSON 源拉取并解析完整的 BMS 难度表。
 ///
 /// 参考 [`fetch_bms_table_full`]。
-pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
+pub async fn fetch_bms_table(web_url: &str) -> Result<BmsTable> {
     let (table, _raw) = fetch_bms_table_full(web_url).await?;
     Ok(table)
 }
@@ -121,6 +120,14 @@ pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
 /// 从提供的 `web_url` 下载 JSON 数组并解析为 [`crate::BmsTableIndexItem`] 列表。
 /// 仅要求每个元素包含 `name`、`symbol` 与 `url`（字符串），其他字段将被收集到 `extra` 中。
 pub async fn fetch_table_index(web_url: &str) -> Result<Vec<BmsTableIndexItem>> {
+    let (out, _raw) = fetch_table_index_full(web_url).await?;
+    Ok(out)
+}
+
+/// 获取 BMS 表索引列表及其原始 JSON 字符串。
+///
+/// 返回解析后的索引项数组与响应的原始 JSON 文本，便于记录或调试。
+pub async fn fetch_table_index_full(web_url: &str) -> Result<(Vec<BmsTableIndexItem>, String)> {
     let web_url = Url::parse(web_url)?;
     let response_text = reqwest::Client::new()
         .get(web_url)
@@ -177,5 +184,5 @@ pub async fn fetch_table_index(web_url: &str) -> Result<Vec<BmsTableIndexItem>> 
         out.push(entry);
     }
 
-    Ok(out)
+    Ok((out, response_text))
 }
