@@ -83,6 +83,8 @@ pub struct BmsTableHeader {
 ///
 /// 仅包含谱面数组。解析时同时兼容纯数组与 `{ charts: [...] }` 两种输入形式。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct BmsTableData {
     /// 谱面数据
     pub charts: Vec<ChartItem>,

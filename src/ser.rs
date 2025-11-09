@@ -1,8 +1,8 @@
 //! 序列化模块。
 #![cfg(feature = "serde")]
 
-use crate::{BmsTableData, BmsTableHeader, ChartItem};
-use serde::ser::{SerializeMap, SerializeSeq};
+use crate::{BmsTableHeader, ChartItem};
+use serde::ser::SerializeMap;
 
 impl serde::Serialize for BmsTableHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -77,19 +77,5 @@ impl serde::Serialize for ChartItem {
         }
 
         map.end()
-    }
-}
-
-impl serde::Serialize for BmsTableData {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // 直接输出数组，而不是 `{ charts: [...] }`
-        let mut seq = serializer.serialize_seq(Some(self.charts.len()))?;
-        for chart in &self.charts {
-            seq.serialize_element(chart)?;
-        }
-        seq.end()
     }
 }

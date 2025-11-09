@@ -7,7 +7,7 @@ use anyhow::Result;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
-use crate::{BmsTableData, BmsTableHeader, ChartItem, CourseInfo, Trophy};
+use crate::{BmsTableHeader, ChartItem, CourseInfo, Trophy};
 
 /// 内部辅助类型：用于更简洁地反序列化表头，并保留未知字段。
 #[derive(Deserialize)]
@@ -77,36 +77,6 @@ impl<'de> Deserialize<'de> for BmsTableHeader {
     {
         let raw = BmsTableHeaderRaw::deserialize(deserializer)?;
         Self::try_from(raw).map_err(serde::de::Error::custom)
-    }
-}
-
-/// 内部辅助类型：兼容数组或包裹对象的两种 `charts` 形式。
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum ChartsWrapper {
-    Array(Vec<ChartItem>),
-    Object { charts: Vec<ChartItem> },
-}
-
-impl TryFrom<ChartsWrapper> for BmsTableData {
-    type Error = String;
-
-    fn try_from(w: ChartsWrapper) -> Result<Self, Self::Error> {
-        let charts = match w {
-            ChartsWrapper::Array(v) => v,
-            ChartsWrapper::Object { charts } => charts,
-        };
-        Ok(Self { charts })
-    }
-}
-
-impl<'de> Deserialize<'de> for BmsTableData {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let w = ChartsWrapper::deserialize(deserializer)?;
-        Self::try_from(w).map_err(serde::de::Error::custom)
     }
 }
 
