@@ -5,6 +5,7 @@
 
 use bms_table::{BmsTable, BmsTableData, BmsTableHeader, CourseInfo};
 use serde_json::json;
+use std::collections::HashMap;
 
 // JSON 解析相关测试：来自原 lib_tests.rs 与 fetch_tests.rs
 
@@ -80,12 +81,12 @@ fn test_build_bms_table_from_json() {
         Some("https://example.com/test_diff.bms".to_string())
     );
 
-    assert_eq!(bms_table.header.extra["extra_field"], "extra_value");
-    assert_eq!(bms_table.header.extra["another_field"], 123);
+    assert_eq!(bms_table.header.extra.get("extra_field"), Some(&json!("extra_value")));
+    assert_eq!(bms_table.header.extra.get("another_field"), Some(&json!(123)));
     assert!(bms_table.header.extra.get("name").is_none());
 
-    assert_eq!(score.extra["custom_field"], "custom_value");
-    assert_eq!(score.extra["rating"], 5.0);
+    assert_eq!(score.extra.get("custom_field"), Some(&json!("custom_value")));
+    assert_eq!(score.extra.get("rating"), Some(&json!(5.0)));
     assert!(score.extra.get("level").is_none());
 
     assert_eq!(bms_table.header.level_order.len(), 22);
@@ -136,7 +137,7 @@ fn test_bms_table_creation() {
         data_url: "https://example.com/charts.json".to_string(),
         course: vec![],
         level_order: vec!["0".to_string(), "1".to_string()],
-        extra: json!({}),
+        extra: HashMap::new(),
     };
     let data = BmsTableData { charts: vec![] };
     let bms_table = BmsTable { header, data };
@@ -156,7 +157,7 @@ fn test_bms_table_partial_eq() {
         data_url: "https://example.com/charts.json".to_string(),
         course: vec![],
         level_order: vec!["0".to_string(), "1".to_string()],
-        extra: json!({}),
+        extra: HashMap::new(),
     };
     let data1 = BmsTableData { charts: vec![] };
     let table1 = BmsTable {
@@ -438,13 +439,12 @@ fn test_json_serialization() {
         data_url: "charts.json".to_string(),
         course: vec![],
         level_order: vec!["0".to_string(), "1".to_string(), "!i".to_string()],
-        extra: serde_json::json!({}),
+        extra: HashMap::new(),
     };
 
     let json = serde_json::to_string(&header).unwrap();
     let parsed: bms_table::BmsTableHeader = serde_json::from_str(&json).unwrap();
     let mut expected = header;
-    expected.extra = serde_json::json!({});
     // 反序列化逻辑：空的 `course: []` 视为扁平形式并包一层空组
     expected.course = vec![Vec::new()];
     assert_eq!(expected, parsed);

@@ -22,6 +22,7 @@
 use anyhow::{anyhow, Result};
 use serde_json::Value;
 use url::Url;
+use std::collections::HashMap;
 
 use crate::BmsTableIndexItem;
 use crate::BmsTableRaw;
@@ -157,13 +158,13 @@ pub async fn fetch_table_index(web_url: &str) -> Result<Vec<BmsTableIndexItem>> 
 
         #[cfg(feature = "serde")]
         let extra = {
-            let mut m = serde_json::Map::new();
+            let mut m: HashMap<String, Value> = HashMap::new();
             for (k, v) in obj.iter() {
                 if k != "name" && k != "symbol" && k != "url" {
                     m.insert(k.clone(), v.clone());
                 }
             }
-            Value::Object(m)
+            m
         };
 
         let entry = BmsTableIndexItem {

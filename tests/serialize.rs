@@ -2,6 +2,7 @@
 
 use bms_table::{BmsTableData, BmsTableHeader, ChartItem};
 use bms_table::{BmsTableIndex, BmsTableIndexItem};
+use std::collections::HashMap;
 use url::Url;
 
 #[test]
@@ -12,10 +13,12 @@ fn test_header_serialize_flattens_extra() {
         data_url: "charts.json".to_string(),
         course: vec![Vec::new()],
         level_order: vec!["0".to_string(), "1".to_string()],
-        extra: serde_json::json!({
-            "extra_field": "extra_value",
-            "another_field": 123
-        }),
+        extra: {
+            let mut m = HashMap::new();
+            m.insert("extra_field".to_string(), serde_json::json!("extra_value"));
+            m.insert("another_field".to_string(), serde_json::json!(123));
+            m
+        },
     };
 
     let value = serde_json::to_value(&header).unwrap();
@@ -30,11 +33,8 @@ fn test_header_serialize_flattens_extra() {
     assert!(!obj.contains_key("extra"));
 
     let parsed: BmsTableHeader = serde_json::from_value(value).unwrap();
-    assert_eq!(
-        parsed.extra["extra_field"],
-        serde_json::json!("extra_value")
-    );
-    assert_eq!(parsed.extra["another_field"], serde_json::json!(123));
+    assert_eq!(parsed.extra.get("extra_field"), Some(&serde_json::json!("extra_value")));
+    assert_eq!(parsed.extra.get("another_field"), Some(&serde_json::json!(123)));
 }
 
 #[test]
@@ -49,10 +49,12 @@ fn test_chart_item_serialize_flattens_extra() {
         subartist: None,
         url: Some("http://example.com".to_string()),
         url_diff: None,
-        extra: serde_json::json!({
-            "custom_field": "value",
-            "rating": 4.5
-        }),
+        extra: {
+            let mut m = HashMap::new();
+            m.insert("custom_field".to_string(), serde_json::json!("value"));
+            m.insert("rating".to_string(), serde_json::json!(4.5));
+            m
+        },
     };
 
     let value = serde_json::to_value(&item).unwrap();
@@ -65,8 +67,8 @@ fn test_chart_item_serialize_flattens_extra() {
     assert!(!obj.contains_key("extra"));
 
     let parsed: ChartItem = serde_json::from_value(value).unwrap();
-    assert_eq!(parsed.extra["custom_field"], serde_json::json!("value"));
-    assert_eq!(parsed.extra["rating"], serde_json::json!(4.5));
+    assert_eq!(parsed.extra.get("custom_field"), Some(&serde_json::json!("value")));
+    assert_eq!(parsed.extra.get("rating"), Some(&serde_json::json!(4.5)));
 }
 
 #[test]
@@ -81,7 +83,7 @@ fn test_bms_table_data_serialize_array() {
         subartist: None,
         url: None,
         url_diff: None,
-        extra: serde_json::json!({}),
+        extra: HashMap::new(),
     };
     let item2 = ChartItem {
         level: "1".to_string(),
@@ -93,7 +95,7 @@ fn test_bms_table_data_serialize_array() {
         subartist: None,
         url: None,
         url_diff: None,
-        extra: serde_json::json!({}),
+        extra: HashMap::new(),
     };
     let data = BmsTableData {
         charts: vec![item1, item2],
@@ -114,27 +116,31 @@ fn test_bms_table_index_serialize_array() {
         name: ".WAS難易度表".to_string(),
         symbol: "．".to_string(),
         url: Url::parse("https://darksabun.club/table/archive/was/").unwrap(),
-        extra: serde_json::json!({
-            "tag1": "SP",
-            "tag2": "Self-made Chart Only",
-            "comment": "Converted by Ribbit",
-            "date": "",
-            "state": "",
-            "tag_order": "1"
-        }),
+        extra: {
+            let mut m = HashMap::new();
+            m.insert("tag1".to_string(), serde_json::json!("SP"));
+            m.insert("tag2".to_string(), serde_json::json!("Self-made Chart Only"));
+            m.insert("comment".to_string(), serde_json::json!("Converted by Ribbit"));
+            m.insert("date".to_string(), serde_json::json!(""));
+            m.insert("state".to_string(), serde_json::json!(""));
+            m.insert("tag_order".to_string(), serde_json::json!("1"));
+            m
+        },
     };
     let item2 = BmsTableIndexItem {
         name: "[F]".to_string(),
         symbol: "[F]".to_string(),
         url: Url::parse("https://bms.hexlataia.xyz/tables/convert/%5BF%5D/table.html").unwrap(),
-        extra: serde_json::json!({
-            "tag1": "SP",
-            "tag2": "Self-made Chart Only",
-            "comment": "Converted by Hex",
-            "date": "",
-            "state": "",
-            "tag_order": "1"
-        }),
+        extra: {
+            let mut m = HashMap::new();
+            m.insert("tag1".to_string(), serde_json::json!("SP"));
+            m.insert("tag2".to_string(), serde_json::json!("Self-made Chart Only"));
+            m.insert("comment".to_string(), serde_json::json!("Converted by Hex"));
+            m.insert("date".to_string(), serde_json::json!(""));
+            m.insert("state".to_string(), serde_json::json!(""));
+            m.insert("tag_order".to_string(), serde_json::json!("1"));
+            m
+        },
     };
     let index = BmsTableIndex {
         indexes: vec![item1, item2],

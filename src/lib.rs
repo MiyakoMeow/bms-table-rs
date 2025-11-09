@@ -46,6 +46,7 @@ pub mod ser;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use serde_json::Value;
+use std::collections::HashMap;
 
 /// 顶层 BMS 难度表数据结构。
 ///
@@ -76,7 +77,7 @@ pub struct BmsTableHeader {
     pub level_order: Vec<String>,
     /// 额外数据（来自header JSON中未识别的字段）
     #[cfg(feature = "serde")]
-    pub extra: Value,
+    pub extra: HashMap<String, Value>,
 }
 
 /// BMS 表数据。
@@ -136,7 +137,7 @@ pub struct ChartItem {
     pub url_diff: Option<String>,
     /// 额外数据
     #[cfg(feature = "serde")]
-    pub extra: Value,
+    pub extra: HashMap<String, Value>,
 }
 
 /// 奖杯信息。
@@ -176,7 +177,8 @@ pub struct BmsTableIndexItem {
     pub url: url::Url,
     /// 额外字段集合（用于保存除必需字段外的所有数据）
     #[cfg(feature = "serde")]
-    pub extra: Value,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub extra: HashMap<String, Value>,
 }
 
 /// BMS 表索引列表包装类型。

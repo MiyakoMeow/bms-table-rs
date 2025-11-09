@@ -17,13 +17,8 @@ impl serde::Serialize for BmsTableHeader {
         map.serialize_entry("course", &self.course)?;
         map.serialize_entry("level_order", &self.level_order)?;
 
-        if let Some(extra_obj) = self.extra.as_object() {
-            for (k, v) in extra_obj {
-                map.serialize_entry(k, v)?;
-            }
-        } else {
-            // 回退：如果不是对象，按原样放在 `extra` 字段下
-            map.serialize_entry("extra", &self.extra)?;
+        for (k, v) in &self.extra {
+            map.serialize_entry(k, v)?;
         }
 
         map.end()
@@ -67,13 +62,8 @@ impl serde::Serialize for ChartItem {
         }
 
         // 展平额外字段到顶层
-        if let Some(extra_obj) = self.extra.as_object() {
-            for (k, v) in extra_obj {
-                map.serialize_entry(k, v)?;
-            }
-        } else {
-            // 回退：如果不是对象，按原样放在 `extra` 字段下
-            map.serialize_entry("extra", &self.extra)?;
+        for (k, v) in &self.extra {
+            map.serialize_entry(k, v)?;
         }
 
         map.end()

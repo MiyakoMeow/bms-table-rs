@@ -6,6 +6,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
+use std::collections::HashMap;
 
 use crate::{BmsTableHeader, ChartItem, CourseInfo, Trophy};
 
@@ -65,7 +66,7 @@ impl TryFrom<BmsTableHeaderRaw> for BmsTableHeader {
             data_url: raw.data_url,
             course,
             level_order,
-            extra: Value::Object(raw.extra),
+            extra: raw.extra.into_iter().collect::<HashMap<String, Value>>(),
         })
     }
 }
@@ -129,7 +130,7 @@ impl TryFrom<CourseInfoRaw> for CourseInfo {
             subartist: None,
             url: None,
             url_diff: None,
-            extra: Value::Object(serde_json::Map::new()),
+            extra: HashMap::new(),
         }));
 
         // sha256list -> charts
@@ -143,7 +144,7 @@ impl TryFrom<CourseInfoRaw> for CourseInfo {
             subartist: None,
             url: None,
             url_diff: None,
-            extra: Value::Object(serde_json::Map::new()),
+            extra: HashMap::new(),
         }));
 
         Ok(Self {
@@ -212,7 +213,7 @@ impl TryFrom<ChartItemRaw> for ChartItem {
             subartist: raw.subartist,
             url: raw.url,
             url_diff: raw.url_diff,
-            extra: Value::Object(raw.extra),
+            extra: raw.extra.into_iter().collect::<HashMap<String, Value>>(),
         })
     }
 }
