@@ -109,7 +109,7 @@ fn table_urls() -> Vec<String> {
     let args: Vec<String> = env::args().collect();
 
     // 确定要使用的URL列表
-    
+
     if args.len() > 1 {
         args[1..].to_vec()
     } else {

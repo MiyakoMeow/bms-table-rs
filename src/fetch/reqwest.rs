@@ -23,6 +23,7 @@ use anyhow::{anyhow, Result};
 use serde_json::Value;
 use url::Url;
 
+use crate::BmsTableIndexItem;
 use crate::BmsTableRaw;
 
 /// 从网页或头部 JSON 源拉取并解析完整的 BMS 难度表。
@@ -112,4 +113,68 @@ pub async fn fetch_bms_table_full(web_url: &str) -> Result<(crate::BmsTable, Bms
 pub async fn fetch_bms_table(web_url: &str) -> Result<crate::BmsTable> {
     let (table, _raw) = fetch_bms_table_full(web_url).await?;
     Ok(table)
+}
+
+/// 获取 BMS 表索引列表。
+///
+/// 从提供的 `web_url` 下载 JSON 数组并解析为 [`crate::BmsTableIndexItem`] 列表。
+/// 仅要求每个元素包含 `name`、`symbol` 与 `url`（字符串），其他字段将被收集到 `extra` 中。
+pub async fn fetch_table_index(web_url: &str) -> Result<Vec<BmsTableIndexItem>> {
+    let web_url = Url::parse(web_url)?;
+    let response_text = reqwest::Client::new()
+        .get(web_url)
+        .send()
+        .await
+        .map_err(|e| anyhow!("When fetching table index: {e}"))?
+        .text()
+        .await
+        .map_err(|e| anyhow!("When parsing table index response: {e}"))?;
+
+    let value: Value = serde_json::from_str(&response_text)?;
+    let arr = value
+        .as_array()
+        .ok_or_else(|| anyhow!("Table index root is not an array"))?;
+
+    let mut out = Vec::with_capacity(arr.len());
+    for (idx, item) in arr.iter().enumerate() {
+        let obj = item
+            .as_object()
+            .ok_or_else(|| anyhow!("Table index item #{idx} is not an object"))?;
+
+        let name = obj
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow!("Missing required field 'name' at index {idx}"))?;
+        let symbol = obj
+            .get("symbol")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow!("Missing required field 'symbol' at index {idx}"))?;
+        let url_str = obj
+            .get("url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow!("Missing required field 'url' at index {idx}"))?;
+        let url = Url::parse(url_str)?;
+
+        #[cfg(feature = "serde")]
+        let extra = {
+            let mut m = serde_json::Map::new();
+            for (k, v) in obj.iter() {
+                if k != "name" && k != "symbol" && k != "url" {
+                    m.insert(k.clone(), v.clone());
+                }
+            }
+            Value::Object(m)
+        };
+
+        let entry = BmsTableIndexItem {
+            name: name.to_string(),
+            symbol: symbol.to_string(),
+            url,
+            #[cfg(feature = "serde")]
+            extra,
+        };
+        out.push(entry);
+    }
+
+    Ok(out)
 }

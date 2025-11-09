@@ -1,6 +1,8 @@
 #![cfg(feature = "serde")]
 
 use bms_table::{BmsTableData, BmsTableHeader, ChartItem};
+use bms_table::{BmsTableIndex, BmsTableIndexItem};
+use url::Url;
 
 #[test]
 fn test_header_serialize_flattens_extra() {
@@ -104,4 +106,45 @@ fn test_bms_table_data_serialize_array() {
     assert_eq!(parsed.charts.len(), 2);
     assert_eq!(parsed.charts[0].level, "0");
     assert_eq!(parsed.charts[1].level, "1");
+}
+
+#[test]
+fn test_bms_table_index_serialize_array() {
+    let item1 = BmsTableIndexItem {
+        name: ".WAS難易度表".to_string(),
+        symbol: "．".to_string(),
+        url: Url::parse("https://darksabun.club/table/archive/was/").unwrap(),
+        extra: serde_json::json!({
+            "tag1": "SP",
+            "tag2": "Self-made Chart Only",
+            "comment": "Converted by Ribbit",
+            "date": "",
+            "state": "",
+            "tag_order": "1"
+        }),
+    };
+    let item2 = BmsTableIndexItem {
+        name: "[F]".to_string(),
+        symbol: "[F]".to_string(),
+        url: Url::parse("https://bms.hexlataia.xyz/tables/convert/%5BF%5D/table.html").unwrap(),
+        extra: serde_json::json!({
+            "tag1": "SP",
+            "tag2": "Self-made Chart Only",
+            "comment": "Converted by Hex",
+            "date": "",
+            "state": "",
+            "tag_order": "1"
+        }),
+    };
+    let index = BmsTableIndex {
+        indexes: vec![item1, item2],
+    };
+
+    let value = serde_json::to_value(&index).unwrap();
+    assert!(value.is_array());
+
+    let parsed: BmsTableIndex = serde_json::from_value(value).unwrap();
+    assert_eq!(parsed.indexes.len(), 2);
+    assert_eq!(parsed.indexes[0].name, ".WAS難易度表");
+    assert_eq!(parsed.indexes[1].symbol, "[F]");
 }

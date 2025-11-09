@@ -158,3 +158,33 @@ pub struct BmsTableRaw {
     /// 原始谱面数据 JSON 字符串
     pub data_raw: String,
 }
+
+/// BMS 表索引条目。
+///
+/// 表示一个难度表在索引列表中的基本信息。仅要求 `name`、`symbol`、`url` 三个字段，
+/// 其余诸如 `tag1`、`tag2`、`comment`、`date`、`state`、`tag_order` 等字段统一收集到 `extra`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct BmsTableIndexItem {
+    /// 表名称，如 ".WAS難易度表"
+    pub name: String,
+    /// 表符号，如 "．" 或 "[F]"
+    pub symbol: String,
+    /// 表地址（为完整的 `url::Url` 类型）
+    pub url: url::Url,
+    /// 额外字段集合（用于保存除必需字段外的所有数据）
+    #[cfg(feature = "serde")]
+    pub extra: Value,
+}
+
+/// BMS 表索引列表包装类型。
+///
+/// 透明序列化为数组：序列化/反序列化时行为与内部的 `Vec<BmsTableIndexItem>` 相同，
+/// 因此序列化结果为一个 JSON 数组而不是对象。
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
+pub struct BmsTableIndex {
+    /// 索引条目数组
+    pub indexes: Vec<BmsTableIndexItem>,
+}
