@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::{ChartItem, CourseInfo, Trophy};
 
@@ -100,7 +100,7 @@ impl TryFrom<CourseInfoRaw> for CourseInfo {
             subartist: None,
             url: None,
             url_diff: None,
-            extra: HashMap::new(),
+            extra: BTreeMap::new(),
         }));
 
         // sha256list -> charts
@@ -114,7 +114,7 @@ impl TryFrom<CourseInfoRaw> for CourseInfo {
             subartist: None,
             url: None,
             url_diff: None,
-            extra: HashMap::new(),
+            extra: BTreeMap::new(),
         }));
 
         Ok(Self {

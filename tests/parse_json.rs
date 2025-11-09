@@ -5,7 +5,7 @@
 
 use bms_table::{BmsTable, BmsTableData, BmsTableHeader, CourseInfo};
 use serde_json::json;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 // JSON 解析相关测试：来自原 lib_tests.rs 与 fetch_tests.rs
 
@@ -146,7 +146,7 @@ fn test_bms_table_creation() {
         data_url: "https://example.com/charts.json".to_string(),
         course: vec![],
         level_order: vec!["0".to_string(), "1".to_string()],
-        extra: HashMap::new(),
+        extra: BTreeMap::new(),
     };
     let data = BmsTableData { charts: vec![] };
     let bms_table = BmsTable { header, data };
@@ -166,7 +166,7 @@ fn test_bms_table_partial_eq() {
         data_url: "https://example.com/charts.json".to_string(),
         course: vec![],
         level_order: vec!["0".to_string(), "1".to_string()],
-        extra: HashMap::new(),
+        extra: BTreeMap::new(),
     };
     let data1 = BmsTableData { charts: vec![] };
     let table1 = BmsTable {
@@ -448,7 +448,7 @@ fn test_json_serialization() {
         data_url: "charts.json".to_string(),
         course: vec![],
         level_order: vec!["0".to_string(), "1".to_string(), "!i".to_string()],
-        extra: HashMap::new(),
+        extra: BTreeMap::new(),
     };
 
     let json = serde_json::to_string(&header).unwrap();

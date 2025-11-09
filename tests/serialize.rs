@@ -2,7 +2,7 @@
 
 use bms_table::{BmsTableData, BmsTableHeader, ChartItem};
 use bms_table::{BmsTableIndex, BmsTableIndexItem};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use url::Url;
 
 #[test]
@@ -14,7 +14,7 @@ fn test_header_serialize_flattens_extra() {
         course: vec![Vec::new()],
         level_order: vec!["0".to_string(), "1".to_string()],
         extra: {
-            let mut m = HashMap::new();
+            let mut m = BTreeMap::new();
             m.insert("extra_field".to_string(), serde_json::json!("extra_value"));
             m.insert("another_field".to_string(), serde_json::json!(123));
             m
@@ -56,7 +56,7 @@ fn test_chart_item_serialize_flattens_extra() {
         url: Some("http://example.com".to_string()),
         url_diff: None,
         extra: {
-            let mut m = HashMap::new();
+            let mut m = BTreeMap::new();
             m.insert("custom_field".to_string(), serde_json::json!("value"));
             m.insert("rating".to_string(), serde_json::json!(4.5));
             m
@@ -92,7 +92,7 @@ fn test_bms_table_data_serialize_array() {
         subartist: None,
         url: None,
         url_diff: None,
-        extra: HashMap::new(),
+        extra: BTreeMap::new(),
     };
     let item2 = ChartItem {
         level: "1".to_string(),
@@ -104,7 +104,7 @@ fn test_bms_table_data_serialize_array() {
         subartist: None,
         url: None,
         url_diff: None,
-        extra: HashMap::new(),
+        extra: BTreeMap::new(),
     };
     let data = BmsTableData {
         charts: vec![item1, item2],
@@ -126,7 +126,7 @@ fn test_bms_table_index_serialize_array() {
         symbol: "．".to_string(),
         url: Url::parse("https://darksabun.club/table/archive/was/").unwrap(),
         extra: {
-            let mut m = HashMap::new();
+            let mut m = BTreeMap::new();
             m.insert("tag1".to_string(), serde_json::json!("SP"));
             m.insert(
                 "tag2".to_string(),
@@ -147,7 +147,7 @@ fn test_bms_table_index_serialize_array() {
         symbol: "[F]".to_string(),
         url: Url::parse("https://bms.hexlataia.xyz/tables/convert/%5BF%5D/table.html").unwrap(),
         extra: {
-            let mut m = HashMap::new();
+            let mut m = BTreeMap::new();
             m.insert("tag1".to_string(), serde_json::json!("SP"));
             m.insert(
                 "tag2".to_string(),

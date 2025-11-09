@@ -22,7 +22,7 @@
 
 use anyhow::{Result, anyhow};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::time::Duration;
 use url::Url;
 
@@ -176,7 +176,7 @@ pub async fn fetch_table_index_full(
 
         #[cfg(feature = "serde")]
         let extra = {
-            let mut m: HashMap<String, Value> = HashMap::new();
+            let mut m: BTreeMap<String, Value> = BTreeMap::new();
             for (k, v) in obj.iter() {
                 if k != "name" && k != "symbol" && k != "url" {
                     m.insert(k.clone(), v.clone());
