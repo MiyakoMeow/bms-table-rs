@@ -1,6 +1,6 @@
 [package]
 name = "bms-table"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2024"
 license = "MIT"
 description = "BMS难度表数据获取器"
