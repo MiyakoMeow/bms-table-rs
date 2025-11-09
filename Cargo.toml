@@ -2,7 +2,7 @@
 name = "bms-table"
 version = "0.6.0"
 edition = "2024"
-license = "MIT"
+license = "Apache-2.0"
 description = "BMS难度表数据获取器"
 authors = ["MiyakoMeow"]
 repository = "https://github.com/MiyakoMeow/bms-table-rs"
