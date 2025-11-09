@@ -16,12 +16,12 @@
 
 ```rust
 use anyhow::Result;
-use bms_table::fetch::reqwest::fetch_bms_table;
+use bms_table::fetch::reqwest::fetch_table;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let url = "https://stellabms.xyz/sl/table.html";
-    let table = fetch_bms_table(url).await?;
+    let table = fetch_table(url).await?;
     println!("{}: {} charts", table.header.name, table.data.charts.len());
     Ok(())
 }
@@ -50,7 +50,7 @@ bms-table-rs/
 - `CourseInfo`：课程信息，支持 `md5`/`sha256` 列表自动转换为谱面
 - `ChartItem`：谱面条目，空字符串在反序列化时自动转换为 `None`
 - `Trophy`：奖杯要求（最大 miss 率、最低得分率）
-- `fetch::reqwest::fetch_bms_table(url)`：从网页或头部 JSON 源拉取并解析完整表
+- `fetch::reqwest::fetch_table(url)`：从网页或头部 JSON 源拉取并解析完整表
 - `fetch::get_web_header_json_value(s)`：将响应字符串解析为头部 JSON 或其 URL
 - `fetch::extract_bmstable_url(html)`：从 HTML 中提取 bmstable 头部地址
 

@@ -17,9 +17,9 @@
 //! # #[tokio::main]
 //! # #[cfg(feature = "reqwest")]
 //! # async fn main() -> anyhow::Result<()> {
-//! use bms_table::fetch::reqwest::fetch_bms_table;
+//! use bms_table::fetch::reqwest::fetch_table;
 //!
-//! let table = fetch_bms_table("https://stellabms.xyz/sl/table.html").await?;
+//! let table = fetch_table("https://stellabms.xyz/sl/table.html").await?;
 //! println!("{}: {} charts", table.header.name, table.data.charts.len());
 //! # Ok(())
 //! # }

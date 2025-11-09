@@ -13,7 +13,7 @@
 
 use anyhow::Result;
 #[cfg(feature = "reqwest")]
-use bms_table::fetch::reqwest::fetch_bms_table;
+use bms_table::fetch::reqwest::fetch_table;
 use bms_table::BmsTable;
 use std::env;
 #[cfg(feature = "reqwest")]
@@ -154,7 +154,7 @@ struct FetchResult {
 /// 获取单个难度表
 #[cfg(feature = "reqwest")]
 async fn fetch_single_table(url: &str) -> FetchResult {
-    match fetch_bms_table(url).await {
+    match fetch_table(url).await {
         Ok(bms_table) => FetchResult {
             name: bms_table.header.name.clone(),
             table: Ok(bms_table),

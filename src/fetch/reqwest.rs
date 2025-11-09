@@ -11,8 +11,8 @@
 //! ```rust,no_run
 //! # #[tokio::main]
 //! # async fn main() -> anyhow::Result<()> {
-//! use bms_table::fetch::reqwest::fetch_bms_table;
-//! let table = fetch_bms_table("https://stellabms.xyz/sl/table.html").await?;
+//! use bms_table::fetch::reqwest::fetch_table;
+//! let table = fetch_table("https://stellabms.xyz/sl/table.html").await?;
 //! assert!(!table.data.charts.is_empty());
 //! # Ok(())
 //! # }
@@ -41,7 +41,7 @@ use crate::{BmsTable, BmsTableIndexItem, BmsTableRaw};
 /// - 网络请求失败（连接失败、超时等）
 /// - 响应内容无法解析为 HTML/JSON 或结构不符合预期
 /// - 头部 JSON 未包含 `data_url` 字段或其类型不正确
-pub async fn fetch_bms_table_full(web_url: &str) -> Result<(BmsTable, BmsTableRaw)> {
+pub async fn fetch_table_full(web_url: &str) -> Result<(BmsTable, BmsTableRaw)> {
     let web_url = Url::parse(web_url)?;
     let web_response = reqwest::Client::new()
         .get(web_url.clone())
@@ -109,9 +109,9 @@ pub async fn fetch_bms_table_full(web_url: &str) -> Result<(BmsTable, BmsTableRa
 
 /// 从网页或头部 JSON 源拉取并解析完整的 BMS 难度表。
 ///
-/// 参考 [`fetch_bms_table_full`]。
-pub async fn fetch_bms_table(web_url: &str) -> Result<BmsTable> {
-    let (table, _raw) = fetch_bms_table_full(web_url).await?;
+/// 参考 [`fetch_table_full`]。
+pub async fn fetch_table(web_url: &str) -> Result<BmsTable> {
+    let (table, _raw) = fetch_table_full(web_url).await?;
     Ok(table)
 }
 
