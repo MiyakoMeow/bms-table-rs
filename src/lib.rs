@@ -40,7 +40,6 @@
 
 pub mod de;
 pub mod fetch;
-pub mod ser;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -64,6 +63,7 @@ pub struct BmsTable {
 ///
 /// 该结构严格解析常见字段，并把未识别的字段保存在 `extra` 中，保证向前兼容。
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct BmsTableHeader {
     /// 表格名称，如 "Satellite"
     pub name: String,
@@ -77,6 +77,7 @@ pub struct BmsTableHeader {
     pub level_order: Vec<String>,
     /// 额外数据（来自header JSON中未识别的字段）
     #[cfg(feature = "serde")]
+    #[cfg_attr(feature = "serde", serde(flatten))]
     pub extra: HashMap<String, Value>,
 }
 
