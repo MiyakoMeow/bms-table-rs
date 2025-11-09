@@ -21,8 +21,8 @@
 
 use anyhow::{anyhow, Result};
 use serde_json::Value;
-use url::Url;
 use std::collections::HashMap;
+use url::Url;
 
 use crate::BmsTableIndexItem;
 use crate::BmsTableRaw;

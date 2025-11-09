@@ -33,8 +33,14 @@ fn test_header_serialize_flattens_extra() {
     assert!(!obj.contains_key("extra"));
 
     let parsed: BmsTableHeader = serde_json::from_value(value).unwrap();
-    assert_eq!(parsed.extra.get("extra_field"), Some(&serde_json::json!("extra_value")));
-    assert_eq!(parsed.extra.get("another_field"), Some(&serde_json::json!(123)));
+    assert_eq!(
+        parsed.extra.get("extra_field"),
+        Some(&serde_json::json!("extra_value"))
+    );
+    assert_eq!(
+        parsed.extra.get("another_field"),
+        Some(&serde_json::json!(123))
+    );
 }
 
 #[test]
@@ -67,7 +73,10 @@ fn test_chart_item_serialize_flattens_extra() {
     assert!(!obj.contains_key("extra"));
 
     let parsed: ChartItem = serde_json::from_value(value).unwrap();
-    assert_eq!(parsed.extra.get("custom_field"), Some(&serde_json::json!("value")));
+    assert_eq!(
+        parsed.extra.get("custom_field"),
+        Some(&serde_json::json!("value"))
+    );
     assert_eq!(parsed.extra.get("rating"), Some(&serde_json::json!(4.5)));
 }
 
@@ -119,8 +128,14 @@ fn test_bms_table_index_serialize_array() {
         extra: {
             let mut m = HashMap::new();
             m.insert("tag1".to_string(), serde_json::json!("SP"));
-            m.insert("tag2".to_string(), serde_json::json!("Self-made Chart Only"));
-            m.insert("comment".to_string(), serde_json::json!("Converted by Ribbit"));
+            m.insert(
+                "tag2".to_string(),
+                serde_json::json!("Self-made Chart Only"),
+            );
+            m.insert(
+                "comment".to_string(),
+                serde_json::json!("Converted by Ribbit"),
+            );
             m.insert("date".to_string(), serde_json::json!(""));
             m.insert("state".to_string(), serde_json::json!(""));
             m.insert("tag_order".to_string(), serde_json::json!("1"));
@@ -134,7 +149,10 @@ fn test_bms_table_index_serialize_array() {
         extra: {
             let mut m = HashMap::new();
             m.insert("tag1".to_string(), serde_json::json!("SP"));
-            m.insert("tag2".to_string(), serde_json::json!("Self-made Chart Only"));
+            m.insert(
+                "tag2".to_string(),
+                serde_json::json!("Self-made Chart Only"),
+            );
             m.insert("comment".to_string(), serde_json::json!("Converted by Hex"));
             m.insert("date".to_string(), serde_json::json!(""));
             m.insert("state".to_string(), serde_json::json!(""));

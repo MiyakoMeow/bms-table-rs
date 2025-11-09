@@ -81,19 +81,28 @@ fn test_build_bms_table_from_json() {
         Some("https://example.com/test_diff.bms".to_string())
     );
 
-    assert_eq!(bms_table.header.extra.get("extra_field"), Some(&json!("extra_value")));
-    assert_eq!(bms_table.header.extra.get("another_field"), Some(&json!(123)));
-    assert!(bms_table.header.extra.get("name").is_none());
+    assert_eq!(
+        bms_table.header.extra.get("extra_field"),
+        Some(&json!("extra_value"))
+    );
+    assert_eq!(
+        bms_table.header.extra.get("another_field"),
+        Some(&json!(123))
+    );
+    assert!(!bms_table.header.extra.contains_key("name"));
 
-    assert_eq!(score.extra.get("custom_field"), Some(&json!("custom_value")));
+    assert_eq!(
+        score.extra.get("custom_field"),
+        Some(&json!("custom_value"))
+    );
     assert_eq!(score.extra.get("rating"), Some(&json!(5.0)));
-    assert!(score.extra.get("level").is_none());
+    assert!(!score.extra.contains_key("level"));
 
     assert_eq!(bms_table.header.level_order.len(), 22);
     assert_eq!(bms_table.header.level_order[0], "0");
     assert_eq!(bms_table.header.level_order[20], "20");
     assert_eq!(bms_table.header.level_order[21], "!i");
-    assert!(bms_table.header.extra.get("level_order").is_none());
+    assert!(!bms_table.header.extra.contains_key("level_order"));
 }
 
 #[test]
