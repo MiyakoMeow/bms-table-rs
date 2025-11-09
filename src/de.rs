@@ -3,82 +3,52 @@
 //! 将所有 `Deserialize` 实现与辅助原始类型集中于此，保持 `lib.rs` 仅包含类型定义。
 #![cfg(feature = "serde")]
 
-use anyhow::Result;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::{BmsTableHeader, ChartItem, CourseInfo, Trophy};
+use crate::{ChartItem, CourseInfo, Trophy};
 
-/// 内部辅助类型：用于更简洁地反序列化表头，并保留未知字段。
-#[derive(Deserialize)]
-struct BmsTableHeaderRaw {
-    name: String,
-    symbol: String,
-    data_url: String,
-    #[serde(default)]
-    course: Option<Value>,
-    #[serde(default)]
-    level_order: Option<Vec<Value>>,
-    #[serde(flatten)]
-    extra: serde_json::Map<String, Value>,
+/// 字段级反序列化：支持 `course` 为 `Vec<CourseInfo>` 或 `Vec<Vec<CourseInfo>>`，
+/// 并在空数组时返回 `vec![Vec::new()]`，保持旧行为。
+pub(crate) fn deserialize_course_groups<'de, D>(
+    deserializer: D,
+) -> Result<Vec<Vec<CourseInfo>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let Some(Value::Array(arr)) = Option::<Value>::deserialize(deserializer)? else {
+        return Ok(Vec::new());
+    };
+    if arr.is_empty() {
+        return Ok(vec![Vec::new()]);
+    }
+
+    if matches!(arr.first(), Some(Value::Array(_))) {
+        serde_json::from_value::<Vec<Vec<CourseInfo>>>(Value::Array(arr))
+            .map_err(serde::de::Error::custom)
+    } else {
+        let inner: Vec<CourseInfo> =
+            serde_json::from_value(Value::Array(arr)).map_err(serde::de::Error::custom)?;
+        Ok(vec![inner])
+    }
 }
 
-/// 支持两种 `course` 输入：`Vec<CourseInfo>` 或 `Vec<Vec<CourseInfo>>`。
-/// 保留原有行为：当 `course` 是空数组时，视为扁平形式并包一层为空组。
-impl TryFrom<BmsTableHeaderRaw> for BmsTableHeader {
-    type Error = String;
-
-    fn try_from(raw: BmsTableHeaderRaw) -> Result<Self, Self::Error> {
-        let course = match raw.course {
-            Some(Value::Array(arr)) => {
-                if arr.is_empty() {
-                    // 空数组按扁平形式处理，包成一个空组
-                    vec![Vec::new()]
-                } else if matches!(arr.first(), Some(Value::Array(_))) {
-                    // Vec<Vec<CourseInfo>>
-                    serde_json::from_value::<Vec<Vec<CourseInfo>>>(Value::Array(arr))
-                        .map_err(|e| e.to_string())?
-                } else {
-                    // Vec<CourseInfo> -> 包装为单个组
-                    let inner: Vec<CourseInfo> =
-                        serde_json::from_value(Value::Array(arr)).map_err(|e| e.to_string())?;
-                    vec![inner]
-                }
-            }
-            _ => Vec::new(),
-        };
-
-        let level_order = raw
-            .level_order
-            .unwrap_or_default()
-            .into_iter()
-            .map(|v| match v {
-                Value::Number(n) => n.to_string(),
-                Value::String(s) => s,
-                other => other.to_string(),
-            })
-            .collect::<Vec<String>>();
-
-        Ok(Self {
-            name: raw.name,
-            symbol: raw.symbol,
-            data_url: raw.data_url,
-            course,
-            level_order,
-            extra: raw.extra.into_iter().collect::<HashMap<String, Value>>(),
+/// 字段级反序列化：将 `level_order` 的数字或字符串转换为字符串，
+/// 其他类型使用 `to_string()`，缺省时返回空数组。
+pub(crate) fn deserialize_level_order<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let values = Option::<Vec<Value>>::deserialize(deserializer)?.unwrap_or_default();
+    Ok(values
+        .into_iter()
+        .map(|v| match v {
+            Value::Number(n) => n.to_string(),
+            Value::String(s) => s,
+            other => other.to_string(),
         })
-    }
-}
-
-impl<'de> Deserialize<'de> for BmsTableHeader {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let raw = BmsTableHeaderRaw::deserialize(deserializer)?;
-        Self::try_from(raw).map_err(serde::de::Error::custom)
-    }
+        .collect())
 }
 
 /// 内部辅助类型：用于更简洁地构造 `CourseInfo`，并处理 md5/sha256 列表。

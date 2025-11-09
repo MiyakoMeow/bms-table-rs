@@ -63,7 +63,7 @@ pub struct BmsTable {
 ///
 /// 该结构严格解析常见字段，并把未识别的字段保存在 `extra` 中，保证向前兼容。
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BmsTableHeader {
     /// 表格名称，如 "Satellite"
     pub name: String,
@@ -72,8 +72,16 @@ pub struct BmsTableHeader {
     /// 谱面数据文件的URL（原样保存来自header JSON的字符串）
     pub data_url: String,
     /// 课程信息数组，每个元素是一个课程组的数组
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "crate::de::deserialize_course_groups")
+    )]
     pub course: Vec<Vec<CourseInfo>>,
     /// 难度等级顺序，包含数字和字符串
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "crate::de::deserialize_level_order")
+    )]
     pub level_order: Vec<String>,
     /// 额外数据（来自header JSON中未识别的字段）
     #[cfg(feature = "serde")]
