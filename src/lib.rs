@@ -24,9 +24,10 @@
 //! # #[tokio::main]
 //! # #[cfg(feature = "reqwest")]
 //! # async fn main() -> anyhow::Result<()> {
-//! use bms_table::fetch::reqwest::fetch_table;
+//! use bms_table::fetch::reqwest::{fetch_table, make_lenient_client};
 //!
-//! let table = fetch_table("https://stellabms.xyz/sl/table.html").await?;
+//! let client = make_lenient_client()?;
+//! let table = fetch_table(&client, "https://stellabms.xyz/sl/table.html").await?;
 //! println!("{}: {} charts", table.header.name, table.data.charts.len());
 //! # Ok(())
 //! # }
@@ -59,8 +60,9 @@
 //! # #[tokio::main]
 //! # #[cfg(feature = "reqwest")]
 //! # async fn main() -> anyhow::Result<()> {
-//! use bms_table::fetch::reqwest::fetch_table_index;
-//! let indexes = fetch_table_index("https://example.com/table_index.json").await?;
+//! use bms_table::fetch::reqwest::{fetch_table_index, make_lenient_client};
+//! let client = make_lenient_client()?;
+//! let indexes = fetch_table_index(&client, "https://example.com/table_index.json").await?;
 //! assert!(!indexes.is_empty());
 //! # Ok(())
 //! # }

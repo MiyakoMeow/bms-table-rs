@@ -33,37 +33,6 @@ bms-table = { version = "0.6", default-features = false, features = ["serde", "s
 - `scraper`：HTML 解析与 bmstable 头部地址提取（默认启用；`reqwest` 隐式启用）。
 - `reqwest`：网络获取实现（默认启用；需要 `tokio` 运行时）。
 
-## 快速开始（网络获取）
-
-```rust
-use anyhow::Result;
-use bms_table::fetch::reqwest::fetch_table;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    let url = "https://stellabms.xyz/sl/table.html";
-    let table = fetch_table(url).await?;
-    println!("{}: {} charts", table.header.name, table.data.charts.len());
-    Ok(())
-}
-```
-
-## 无网络使用（直接解析 JSON）
-
-```rust
-use anyhow::Result;
-use bms_table::{BmsTable, BmsTableHeader, BmsTableData};
-
-fn main() -> Result<()> {
-    let header_json = r#"{ "name": "Test", "symbol": "t", "data_url": "charts.json", "course": [], "level_order": [] }"#;
-    let data_json = r#"{ "charts": [] }"#;
-    let header: BmsTableHeader = serde_json::from_str(header_json)?;
-    let data: BmsTableData = serde_json::from_str(data_json)?;
-    let _table = BmsTable { header, data };
-    Ok(())
-}
-```
-
 ## API 概览
 
 - `BmsTable`：顶层数据结构，包含 `header` 与 `data`。

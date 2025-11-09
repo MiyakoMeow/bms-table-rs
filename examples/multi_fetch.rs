@@ -14,7 +14,7 @@
 use anyhow::Result;
 use bms_table::BmsTable;
 #[cfg(feature = "reqwest")]
-use bms_table::fetch::reqwest::fetch_table;
+use bms_table::fetch::reqwest::{fetch_table, make_lenient_client};
 use std::env;
 #[cfg(feature = "reqwest")]
 use tokio::sync::mpsc;
@@ -41,6 +41,9 @@ async fn main() -> Result<()> {
     // 显示程序标题
     println!("多难度表并发获取器");
     println!("===================");
+
+    // 创建宽松规则的 HTTP 客户端（可复用）
+    let client = make_lenient_client()?;
 
     // 显示正在获取数据的信息
     let urls = table_urls();
@@ -76,8 +79,9 @@ async fn main() -> Result<()> {
         .into_iter()
         .map(|url| {
             let tx = tx.clone();
+            let client_cloned = client.clone();
             tokio::spawn(async move {
-                let result = fetch_single_table(&url).await;
+                let result = fetch_single_table(&client_cloned, &url).await;
                 let _ = tx.send(result).await;
             })
         })
@@ -153,8 +157,8 @@ struct FetchResult {
 
 /// 获取单个难度表
 #[cfg(feature = "reqwest")]
-async fn fetch_single_table(url: &str) -> FetchResult {
-    match fetch_table(url).await {
+async fn fetch_single_table(client: &reqwest::Client, url: &str) -> FetchResult {
+    match fetch_table(client, url).await {
         Ok(bms_table) => FetchResult {
             name: bms_table.header.name.clone(),
             table: Ok(bms_table),

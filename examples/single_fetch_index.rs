@@ -9,14 +9,15 @@
 #![cfg_attr(not(feature = "reqwest"), allow(unused_imports))]
 
 #[cfg(feature = "reqwest")]
-use bms_table::fetch::reqwest::fetch_table_index_full;
+use bms_table::fetch::reqwest::{fetch_table_index_full, make_lenient_client};
 
 #[cfg(feature = "reqwest")]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let url = "https://script.google.com/macros/s/AKfycbzaQbcI9UZDcDlSHHl2NHilhmePrNrwxRdOFkmIXsfnbfksKKmAB3V65WZ8jPWU-7E/exec?table=tablelist";
 
-    let (indexes, raw) = fetch_table_index_full(url).await?;
+    let client = make_lenient_client()?;
+    let (indexes, raw) = fetch_table_index_full(&client, url).await?;
     println!("Fetched {} index entries.", indexes.len());
 
     for (i, item) in indexes.iter().take(10).enumerate() {

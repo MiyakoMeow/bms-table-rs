@@ -11,8 +11,9 @@
 //! ```rust,no_run
 //! # #[tokio::main]
 //! # async fn main() -> anyhow::Result<()> {
-//! use bms_table::fetch::reqwest::fetch_table;
-//! let table = fetch_table("https://stellabms.xyz/sl/table.html").await?;
+//! use bms_table::fetch::reqwest::{fetch_table, make_lenient_client};
+//! let client = make_lenient_client()?;
+//! let table = fetch_table(&client, "https://stellabms.xyz/sl/table.html").await?;
 //! assert!(!table.data.charts.is_empty());
 //! # Ok(())
 //! # }
@@ -42,9 +43,11 @@ use crate::{BmsTable, BmsTableIndexItem, BmsTableRaw};
 /// - 网络请求失败（连接失败、超时等）
 /// - 响应内容无法解析为 HTML/JSON 或结构不符合预期
 /// - 头部 JSON 未包含 `data_url` 字段或其类型不正确
-pub async fn fetch_table_full(web_url: &str) -> Result<(BmsTable, BmsTableRaw)> {
+pub async fn fetch_table_full(
+    client: &reqwest::Client,
+    web_url: &str,
+) -> Result<(BmsTable, BmsTableRaw)> {
     let web_url = Url::parse(web_url)?;
-    let client = make_client()?;
     let web_response = client
         .get(web_url.clone())
         .send()
@@ -112,8 +115,8 @@ pub async fn fetch_table_full(web_url: &str) -> Result<(BmsTable, BmsTableRaw)> 
 /// 从网页或头部 JSON 源拉取并解析完整的 BMS 难度表。
 ///
 /// 参考 [`fetch_table_full`]。
-pub async fn fetch_table(web_url: &str) -> Result<BmsTable> {
-    let (table, _raw) = fetch_table_full(web_url).await?;
+pub async fn fetch_table(client: &reqwest::Client, web_url: &str) -> Result<BmsTable> {
+    let (table, _raw) = fetch_table_full(client, web_url).await?;
     Ok(table)
 }
 
@@ -121,17 +124,22 @@ pub async fn fetch_table(web_url: &str) -> Result<BmsTable> {
 ///
 /// 从提供的 `web_url` 下载 JSON 数组并解析为 [`crate::BmsTableIndexItem`] 列表。
 /// 仅要求每个元素包含 `name`、`symbol` 与 `url`（字符串），其他字段将被收集到 `extra` 中。
-pub async fn fetch_table_index(web_url: &str) -> Result<Vec<BmsTableIndexItem>> {
-    let (out, _raw) = fetch_table_index_full(web_url).await?;
+pub async fn fetch_table_index(
+    client: &reqwest::Client,
+    web_url: &str,
+) -> Result<Vec<BmsTableIndexItem>> {
+    let (out, _raw) = fetch_table_index_full(client, web_url).await?;
     Ok(out)
 }
 
 /// 获取 BMS 表索引列表及其原始 JSON 字符串。
 ///
 /// 返回解析后的索引项数组与响应的原始 JSON 文本，便于记录或调试。
-pub async fn fetch_table_index_full(web_url: &str) -> Result<(Vec<BmsTableIndexItem>, String)> {
+pub async fn fetch_table_index_full(
+    client: &reqwest::Client,
+    web_url: &str,
+) -> Result<(Vec<BmsTableIndexItem>, String)> {
     let web_url = Url::parse(web_url)?;
-    let client = make_client()?;
     let response_text = client
         .get(web_url)
         .send()
@@ -190,7 +198,14 @@ pub async fn fetch_table_index_full(web_url: &str) -> Result<(Vec<BmsTableIndexI
     Ok((out, response_text))
 }
 
-fn make_client() -> Result<reqwest::Client> {
+/// 创建一个规则宽松、兼容性更强的 HTTP 客户端。
+///
+/// - 设置浏览器 UA；
+/// - 配置超时与重定向；
+/// - 接受无效证书（用于少数不规范站点）；
+///
+/// 注意：生产环境应审慎使用 `danger_accept_invalid_certs`。
+pub fn make_lenient_client() -> Result<reqwest::Client> {
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36 bms-table-rs")
         .timeout(Duration::from_secs(30))
