@@ -19,7 +19,7 @@
 //! ```
 #![cfg(feature = "reqwest")]
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde_json::Value;
 use std::collections::HashMap;
 use url::Url;

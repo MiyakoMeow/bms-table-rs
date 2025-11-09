@@ -12,9 +12,9 @@
 #![cfg_attr(not(feature = "reqwest"), allow(unused_imports))]
 
 use anyhow::Result;
+use bms_table::BmsTable;
 #[cfg(feature = "reqwest")]
 use bms_table::fetch::reqwest::fetch_table;
-use bms_table::BmsTable;
 use std::env;
 #[cfg(feature = "reqwest")]
 use tokio::sync::mpsc;

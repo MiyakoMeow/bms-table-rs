@@ -26,7 +26,7 @@
 
 pub mod reqwest;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use scraper::{Html, Selector};
 use serde_json::Value;
 
@@ -83,14 +83,14 @@ pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
 
     for element in document.select(&meta_selector) {
         // 检查是否有name属性为"bmstable"的meta标签
-        if let Some(name_attr) = element.value().attr("name") {
-            if name_attr == "bmstable" {
-                // 获取content属性
-                if let Some(content_attr) = element.value().attr("content") {
-                    if !content_attr.is_empty() {
-                        return Ok(content_attr.to_string());
-                    }
-                }
+        if let Some(name_attr) = element.value().attr("name")
+            && name_attr == "bmstable"
+        {
+            // 获取content属性
+            if let Some(content_attr) = element.value().attr("content")
+                && !content_attr.is_empty()
+            {
+                return Ok(content_attr.to_string());
             }
         }
     }
