@@ -150,3 +150,11 @@ pub struct Trophy {
     /// 最小得分率（百分比），如 70.0 表示至少70%的得分率
     pub scorerate: f64,
 }
+
+/// 完整的原始 JSON 字符串集合。
+pub struct BmsTableRaw {
+    /// 原始表头 JSON 字符串
+    pub header_raw: String,
+    /// 原始谱面数据 JSON 字符串
+    pub data_raw: String,
+}

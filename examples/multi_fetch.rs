@@ -109,7 +109,8 @@ fn table_urls() -> Vec<String> {
     let args: Vec<String> = env::args().collect();
 
     // 确定要使用的URL列表
-    let urls = if args.len() > 1 {
+    
+    if args.len() > 1 {
         args[1..].to_vec()
     } else {
         vec![
@@ -137,8 +138,7 @@ fn table_urls() -> Vec<String> {
         .filter(|url| !url.is_empty())
         .map(ToString::to_string)
         .collect()
-    };
-    urls
+    }
 }
 
 /// 难度表获取结果
