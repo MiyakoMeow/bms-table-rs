@@ -167,63 +167,10 @@ impl<'de> Deserialize<'de> for CourseInfo {
 }
 
 /// 将空字符串反序列化为 `None` 的通用辅助函数。
-fn empty_string_as_none<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+pub(crate) fn empty_string_as_none<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
     let opt = Option::<String>::deserialize(deserializer)?;
     Ok(opt.filter(|s| !s.is_empty()))
-}
-
-/// 内部辅助类型：用于更简洁地反序列化 `ChartItem` 并保留未知字段。
-#[derive(Deserialize)]
-struct ChartItemRaw {
-    level: String,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    md5: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    sha256: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    title: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    subtitle: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    artist: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    subartist: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    url: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    url_diff: Option<String>,
-    #[serde(flatten)]
-    extra: serde_json::Map<String, Value>,
-}
-
-impl TryFrom<ChartItemRaw> for ChartItem {
-    type Error = String;
-
-    fn try_from(raw: ChartItemRaw) -> Result<Self, Self::Error> {
-        Ok(Self {
-            level: raw.level,
-            md5: raw.md5,
-            sha256: raw.sha256,
-            title: raw.title,
-            subtitle: raw.subtitle,
-            artist: raw.artist,
-            subartist: raw.subartist,
-            url: raw.url,
-            url_diff: raw.url_diff,
-            extra: raw.extra.into_iter().collect::<HashMap<String, Value>>(),
-        })
-    }
-}
-
-impl<'de> Deserialize<'de> for ChartItem {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let raw = ChartItemRaw::deserialize(deserializer)?;
-        Self::try_from(raw).map_err(serde::de::Error::custom)
-    }
 }

@@ -116,27 +116,61 @@ pub struct CourseInfo {
 /// 描述单个 BMS 文件的相关元数据与资源链接。为空字符串的可选字段在反序列化时会
 /// 自动转换为 `None`，以提升数据质量。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ChartItem {
     /// 难度等级，如 "0"
     pub level: String,
     /// 文件的MD5哈希值
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "crate::de::empty_string_as_none")
+    )]
     pub md5: Option<String>,
     /// 文件的SHA256哈希值
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "crate::de::empty_string_as_none")
+    )]
     pub sha256: Option<String>,
     /// 歌曲标题
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "crate::de::empty_string_as_none")
+    )]
     pub title: Option<String>,
     /// 歌曲副标题
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "crate::de::empty_string_as_none")
+    )]
     pub subtitle: Option<String>,
     /// 艺术家名称
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "crate::de::empty_string_as_none")
+    )]
     pub artist: Option<String>,
     /// 歌曲副艺术家
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "crate::de::empty_string_as_none")
+    )]
     pub subartist: Option<String>,
     /// 文件下载链接
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "crate::de::empty_string_as_none")
+    )]
     pub url: Option<String>,
     /// 差分文件下载链接（可选）
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, deserialize_with = "crate::de::empty_string_as_none")
+    )]
     pub url_diff: Option<String>,
     /// 额外数据
     #[cfg(feature = "serde")]
+    #[cfg_attr(feature = "serde", serde(flatten))]
     pub extra: HashMap<String, Value>,
 }
 
@@ -155,6 +189,7 @@ pub struct Trophy {
 }
 
 /// 完整的原始 JSON 字符串集合。
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BmsTableRaw {
     /// 原始表头 JSON 字符串
     pub header_raw: String,
