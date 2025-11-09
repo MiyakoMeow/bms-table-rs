@@ -22,6 +22,7 @@
 use anyhow::{Result, anyhow};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::time::Duration;
 use url::Url;
 
 use crate::{BmsTable, BmsTableIndexItem, BmsTableRaw};
@@ -43,7 +44,8 @@ use crate::{BmsTable, BmsTableIndexItem, BmsTableRaw};
 /// - 头部 JSON 未包含 `data_url` 字段或其类型不正确
 pub async fn fetch_table_full(web_url: &str) -> Result<(BmsTable, BmsTableRaw)> {
     let web_url = Url::parse(web_url)?;
-    let web_response = reqwest::Client::new()
+    let client = make_client()?;
+    let web_response = client
         .get(web_url.clone())
         .send()
         .await
@@ -55,7 +57,7 @@ pub async fn fetch_table_full(web_url: &str) -> Result<(BmsTable, BmsTableRaw)> 
         match crate::fetch::get_web_header_json_value(&web_response)? {
             crate::fetch::HeaderQueryContent::Url(header_url_string) => {
                 let header_url = web_url.join(&header_url_string)?;
-                let header_response = reqwest::Client::new()
+                let header_response = client
                     .get(header_url.clone())
                     .send()
                     .await
@@ -84,7 +86,7 @@ pub async fn fetch_table_full(web_url: &str) -> Result<(BmsTable, BmsTableRaw)> 
         .as_str()
         .ok_or_else(|| anyhow!("\"data_url\" is not a string!"))?;
     let data_url = header_url.join(data_url_str)?;
-    let data_response = reqwest::Client::new()
+    let data_response = client
         .get(data_url)
         .send()
         .await
@@ -129,7 +131,8 @@ pub async fn fetch_table_index(web_url: &str) -> Result<Vec<BmsTableIndexItem>> 
 /// 返回解析后的索引项数组与响应的原始 JSON 文本，便于记录或调试。
 pub async fn fetch_table_index_full(web_url: &str) -> Result<(Vec<BmsTableIndexItem>, String)> {
     let web_url = Url::parse(web_url)?;
-    let response_text = reqwest::Client::new()
+    let client = make_client()?;
+    let response_text = client
         .get(web_url)
         .send()
         .await
@@ -185,4 +188,15 @@ pub async fn fetch_table_index_full(web_url: &str) -> Result<(Vec<BmsTableIndexI
     }
 
     Ok((out, response_text))
+}
+
+fn make_client() -> Result<reqwest::Client> {
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36 bms-table-rs")
+        .timeout(Duration::from_secs(30))
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| anyhow!("When building client: {e}"))?;
+    Ok(client)
 }
