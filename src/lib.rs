@@ -1,17 +1,24 @@
-//! BMS 难度表数据获取与解析库
+//! BMS 难度表获取与解析
 //!
-//! 提供从网页或 JSON 源构建完整的 BMS 难度表数据结构，涵盖表头、课程、奖杯与谱面条目等。
-//! 结合可选特性实现网络抓取与 HTML 解析，适用于 CLI 工具、服务端程序或数据处理流水线。
+//! 提供从网页或头部 JSON 构建完整的 BMS 难度表数据结构，涵盖表头、课程、奖杯与谱面条目。
+//! 结合特性开关实现网络抓取与 HTML 解析，适用于 CLI 工具、服务端程序或数据处理流水线。
 //!
-//! # 功能概述
+//! # 功能一览
 //!
-//! - 解析表头 JSON，支持收集未识别的额外字段
-//! - 解析谱面数据，兼容数组或 `{ charts: [...] }` 两种格式
-//! - 课程数据支持从 `md5`/`sha256` 列表自动转换为谱面条目
-//! - 可选特性 `reqwest` 提供一站式网络获取接口
-//! - 可选特性 `scraper` 支持从 HTML `<meta name="bmstable">` 提取头部 JSON 地址
+//! - 解析表头 JSON，未识别字段保留在 `extra` 以保证向前兼容；
+//! - 解析谱面数据，兼容纯数组与 `{ charts: [...] }` 两种格式；
+//! - 课程支持将 `md5`/`sha256` 列表自动转换为谱面条目，缺失 `level` 时补为 "0"；
+//! - 从 HTML 的 `<meta name="bmstable">` 提取头部 JSON 地址；
+//! - 一站式网络获取 API（网页 → 头部 JSON → 谱面数据）；
+//! - 支持获取难度表索引列表。
 //!
-//! # 快速上手
+//! # 特性开关
+//!
+//! - `serde`：启用类型的序列化/反序列化支持（默认启用）。
+//! - `scraper`：启用 HTML 解析与 bmstable 头部地址提取（默认启用；`reqwest` 隐式启用该特性）。
+//! - `reqwest`：启用网络获取实现（默认启用；需要 `tokio` 运行时）。
+//!
+//! # 快速上手（网络获取）
 //!
 //! ```rust,no_run
 //! # #[tokio::main]
@@ -28,10 +35,40 @@
 //! # fn main() {}
 //! ```
 //!
-//! # 特性说明
+//! # 无网络使用（直接解析 JSON）
 //!
-//! - `reqwest`：启用网络获取功能（默认启用）
-//! - `scraper`：启用 HTML 解析（用于从页面提取 bmstable 头部地址）
+//! ```rust,no_run
+//! # #[cfg(feature = "serde")]
+//! # fn main() -> anyhow::Result<()> {
+//! use bms_table::{BmsTable, BmsTableHeader, BmsTableData};
+//!
+//! let header_json = r#"{ "name": "Test", "symbol": "t", "data_url": "charts.json", "course": [], "level_order": [] }"#;
+//! let data_json = r#"{ "charts": [] }"#;
+//! let header: BmsTableHeader = serde_json::from_str(header_json)?;
+//! let data: BmsTableData = serde_json::from_str(data_json)?;
+//! let _table = BmsTable { header, data };
+//! # Ok(())
+//! # }
+//! # #[cfg(not(feature = "serde"))]
+//! # fn main() {}
+//! ```
+//!
+//! # 获取索引列表示例
+//!
+//! ```rust,no_run
+//! # #[tokio::main]
+//! # #[cfg(feature = "reqwest")]
+//! # async fn main() -> anyhow::Result<()> {
+//! use bms_table::fetch::reqwest::fetch_table_index;
+//! let indexes = fetch_table_index("https://example.com/table_index.json").await?;
+//! assert!(!indexes.is_empty());
+//! # Ok(())
+//! # }
+//! # #[cfg(not(feature = "reqwest"))]
+//! # fn main() {}
+//! ```
+//!
+//! 提示：启用 `reqwest` 特性将隐式启用 `scraper`，以支持从网页内容中定位 bmstable 头部地址。
 
 #![warn(missing_docs)]
 #![warn(clippy::must_use_candidate)]
