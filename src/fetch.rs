@@ -81,19 +81,116 @@ pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
         return Err(anyhow!("未找到meta标签"));
     };
 
+    // 1) 优先从<meta name="bmstable" content="...">或<meta property="bmstable">提取
     for element in document.select(&meta_selector) {
-        // 检查是否有name属性为"bmstable"的meta标签
-        if let Some(name_attr) = element.value().attr("name")
-            && name_attr == "bmstable"
+        // name 或 property 为 bmstable 的标签
+        let is_bmstable = element
+            .value()
+            .attr("name")
+            .is_some_and(|v| v.eq_ignore_ascii_case("bmstable"))
+            || element
+                .value()
+                .attr("property")
+                .is_some_and(|v| v.eq_ignore_ascii_case("bmstable"));
+        if is_bmstable
+            && let Some(content_attr) = element.value().attr("content")
+            && !content_attr.is_empty()
         {
-            // 获取content属性
-            if let Some(content_attr) = element.value().attr("content")
-                && !content_attr.is_empty()
+            return Ok(content_attr.to_string());
+        }
+    }
+
+    // 2) 其次尝试<link rel="bmstable" href="...json">
+    if let Ok(link_selector) = Selector::parse("link") {
+        for element in document.select(&link_selector) {
+            let rel = element.value().attr("rel");
+            let href = element.value().attr("href");
+            if rel.is_some_and(|v| v.eq_ignore_ascii_case("bmstable"))
+                && let Some(href) = href
+                && !href.is_empty()
             {
-                return Ok(content_attr.to_string());
+                return Ok(href.to_string());
             }
         }
     }
 
-    Err(anyhow!("未找到bmstable字段"))
+    // 3) 再尝试在常见标签属性中寻找 *header*.json 线索
+    //    - a[href], link[href], script[src], meta[content]
+    let lower_contains_header_json = |s: &str| {
+        let ls = s.to_ascii_lowercase();
+        ls.contains("header") && ls.ends_with(".json")
+    };
+
+    // a[href]
+    if let Ok(a_selector) = Selector::parse("a") {
+        for element in document.select(&a_selector) {
+            if let Some(href) = element.value().attr("href")
+                && lower_contains_header_json(href)
+            {
+                return Ok(href.to_string());
+            }
+        }
+    }
+
+    // link[href]
+    if let Ok(link_selector) = Selector::parse("link") {
+        for element in document.select(&link_selector) {
+            if let Some(href) = element.value().attr("href")
+                && lower_contains_header_json(href)
+            {
+                return Ok(href.to_string());
+            }
+        }
+    }
+
+    // script[src]
+    if let Ok(script_selector) = Selector::parse("script") {
+        for element in document.select(&script_selector) {
+            if let Some(src) = element.value().attr("src")
+                && lower_contains_header_json(src)
+            {
+                return Ok(src.to_string());
+            }
+        }
+    }
+
+    // meta[content]
+    for element in document.select(&meta_selector) {
+        if let Some(content_attr) = element.value().attr("content")
+            && lower_contains_header_json(content_attr)
+        {
+            return Ok(content_attr.to_string());
+        }
+    }
+
+    // 4) 最后进行原始文本的极简启发式搜索：匹配包含"header"且以 .json 结尾的子串
+    if let Some((start, end)) = find_header_json_in_text(html_content) {
+        let candidate = &html_content[start..end];
+        return Ok(candidate.to_string());
+    }
+
+    Err(anyhow!("未找到bmstable字段或header JSON线索"))
+}
+
+/// 在原始文本中查找类似 "*header*.json" 的子串，返回起止下标（若找到）。
+fn find_header_json_in_text(s: &str) -> Option<(usize, usize)> {
+    let lower = s.to_ascii_lowercase();
+    let mut pos = 0;
+    while let Some(idx) = lower[pos..].find("header") {
+        let global_idx = pos + idx;
+        // 在 header 之后寻找 .json
+        if let Some(json_rel) = lower[global_idx..].find(".json") {
+            let end = global_idx + json_rel + ".json".len();
+            // 试着往前找最近的引号或空白作为起点
+            let start = lower[..global_idx]
+                .rfind(|c: char| c == '"' || c == '\'' || c.is_whitespace())
+                .map(|i| i + 1)
+                .unwrap_or(global_idx);
+            if end > start {
+                return Some((start, end));
+            }
+        }
+        pos = global_idx + 6; // 跳过 "header"
+    }
+    None
 }
