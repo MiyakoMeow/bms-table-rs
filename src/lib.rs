@@ -86,7 +86,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-use crate::de::{de_numstring, de_string_opt, deserialize_course_groups, deserialize_level_order};
+use crate::de::{de_numstring, deserialize_course_groups, deserialize_level_order};
 
 /// 顶层 BMS 难度表数据结构。
 ///
@@ -172,28 +172,20 @@ pub struct ChartItem {
     #[cfg_attr(feature = "serde", serde(default, deserialize_with = "de_numstring"))]
     pub level: String,
     /// 文件的MD5哈希值
-    #[cfg_attr(feature = "serde", serde(default, deserialize_with = "de_string_opt"))]
     pub md5: Option<String>,
     /// 文件的SHA256哈希值
-    #[cfg_attr(feature = "serde", serde(default, deserialize_with = "de_string_opt"))]
     pub sha256: Option<String>,
     /// 歌曲标题
-    #[cfg_attr(feature = "serde", serde(default, deserialize_with = "de_string_opt"))]
     pub title: Option<String>,
     /// 歌曲副标题
-    #[cfg_attr(feature = "serde", serde(default, deserialize_with = "de_string_opt"))]
     pub subtitle: Option<String>,
     /// 艺术家名称
-    #[cfg_attr(feature = "serde", serde(default, deserialize_with = "de_string_opt"))]
     pub artist: Option<String>,
     /// 歌曲副艺术家
-    #[cfg_attr(feature = "serde", serde(default, deserialize_with = "de_string_opt"))]
     pub subartist: Option<String>,
     /// 文件下载链接
-    #[cfg_attr(feature = "serde", serde(default, deserialize_with = "de_string_opt"))]
     pub url: Option<String>,
     /// 差分文件下载链接（可选）
-    #[cfg_attr(feature = "serde", serde(default, deserialize_with = "de_string_opt"))]
     pub url_diff: Option<String>,
     /// 额外数据
     #[cfg(feature = "serde")]

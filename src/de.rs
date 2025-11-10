@@ -156,12 +156,3 @@ where
         ))),
     }
 }
-
-/// 将空字符串反序列化为 `None` 的通用辅助函数。
-pub(crate) fn de_string_opt<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let opt = Option::<String>::deserialize(deserializer)?;
-    Ok(opt.filter(|s| !s.is_empty()))
-}
