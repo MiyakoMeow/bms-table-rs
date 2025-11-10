@@ -120,7 +120,7 @@ fn test_bms_table_data_serialize_array() {
 }
 
 #[test]
-fn test_bms_table_index_serialize_array() {
+fn test_bms_table_list_serialize_array() {
     let item1 = BmsTableInfo {
         name: ".WAS難易度表".to_string(),
         symbol: "．".to_string(),

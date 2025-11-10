@@ -10,7 +10,7 @@
 //! - 课程支持将 `md5`/`sha256` 列表自动转换为谱面条目，缺失 `level` 时补为 "0"；
 //! - 从 HTML 的 `<meta name="bmstable">` 提取头部 JSON 地址；
 //! - 一站式网络获取 API（网页 → 头部 JSON → 谱面数据）；
-//! - 支持获取难度表索引列表。
+//! - 支持获取难度表列表。
 //!
 //! # 特性开关
 //!
@@ -54,7 +54,7 @@
 //! # fn main() {}
 //! ```
 //!
-//! # 获取索引列表示例
+//! # 获取难度表列表示例
 //!
 //! ```rust,no_run
 //! # #[tokio::main]
@@ -245,9 +245,9 @@ pub struct BmsTableRaw {
     pub data_raw: String,
 }
 
-/// BMS 表索引条目。
+/// BMS 难度表列表条目。
 ///
-/// 表示一个难度表在索引列表中的基本信息。仅要求 `name`、`symbol`、`url` 三个字段，
+/// 表示一个难度表在列表中的基本信息。仅要求 `name`、`symbol`、`url` 三个字段，
 /// 其余诸如 `tag1`、`tag2`、`comment`、`date`、`state`、`tag_order` 等字段统一收集到 `extra`。
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -264,7 +264,7 @@ pub struct BmsTableInfo {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// BMS 表索引列表包装类型。
+/// BMS 难度表列表包装类型。
 ///
 /// 透明序列化为数组：序列化/反序列化时行为与内部的 `Vec<BmsTableInfo>` 相同，
 /// 因此序列化结果为一个 JSON 数组而不是对象。
@@ -272,6 +272,6 @@ pub struct BmsTableInfo {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 pub struct BmsTableList {
-    /// 索引条目数组
+    /// 列表条目数组
     pub indexes: Vec<BmsTableInfo>,
 }

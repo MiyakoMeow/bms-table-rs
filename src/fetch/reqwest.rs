@@ -120,7 +120,7 @@ pub async fn fetch_table(client: &reqwest::Client, web_url: &str) -> Result<BmsT
     Ok(table)
 }
 
-/// 获取 BMS 表索引列表。
+/// 获取 BMS 难度表列表。
 ///
 /// 从提供的 `web_url` 下载 JSON 数组并解析为 [`crate::BmsTableInfo`] 列表。
 /// 仅要求每个元素包含 `name`、`symbol` 与 `url`（字符串），其他字段将被收集到 `extra` 中。
@@ -132,9 +132,9 @@ pub async fn fetch_table_list(
     Ok(out)
 }
 
-/// 获取 BMS 表索引列表及其原始 JSON 字符串。
+/// 获取 BMS 难度表列表及其原始 JSON 字符串。
 ///
-/// 返回解析后的索引项数组与响应的原始 JSON 文本，便于记录或调试。
+/// 返回解析后的列表项数组与响应的原始 JSON 文本，便于记录或调试。
 pub async fn fetch_table_list_full(
     client: &reqwest::Client,
     web_url: &str,
@@ -144,21 +144,21 @@ pub async fn fetch_table_list_full(
         .get(web_url)
         .send()
         .await
-        .map_err(|e| anyhow!("When fetching table index: {e}"))?
+        .map_err(|e| anyhow!("When fetching table list: {e}"))?
         .text()
         .await
-        .map_err(|e| anyhow!("When parsing table index response: {e}"))?;
+        .map_err(|e| anyhow!("When parsing table list response: {e}"))?;
 
     let value: Value = serde_json::from_str(&response_text)?;
     let arr = value
         .as_array()
-        .ok_or_else(|| anyhow!("Table index root is not an array"))?;
+        .ok_or_else(|| anyhow!("Table list root is not an array"))?;
 
     let mut out = Vec::with_capacity(arr.len());
     for (idx, item) in arr.iter().enumerate() {
         let obj = item
             .as_object()
-            .ok_or_else(|| anyhow!("Table index item #{idx} is not an object"))?;
+            .ok_or_else(|| anyhow!("Table list item #{idx} is not an object"))?;
 
         let name = obj
             .get("name")

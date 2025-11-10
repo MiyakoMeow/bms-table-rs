@@ -1,6 +1,6 @@
 # BMS 难度表数据获取与解析库
 
-使用 Rust 实现的 BMS 难度表获取与解析库。支持从网页或头部 JSON 构建完整数据结构，覆盖表头、课程、奖杯与谱面条目，并提供索引列表获取能力。
+使用 Rust 实现的 BMS 难度表获取与解析库。支持从网页或头部 JSON 构建完整数据结构，覆盖表头、课程、奖杯与谱面条目，并提供难度表列表获取能力。
 
 ## 安装
 
@@ -25,7 +25,7 @@ bms-table = { version = "0.6", default-features = false, features = ["serde", "s
 - 解析谱面数据为 `BmsTableData`，兼容纯数组与 `{ charts: [...] }` 两种格式。
 - 将课程中的 `md5`/`sha256` 列表自动转换为 `ChartItem`，缺失 `level` 时补为 "0"。
 - 一站式网络获取 API（启用 `reqwest`，隐式启用 `scraper`）。
-- 获取难度表索引列表。
+- 获取难度表列表。
 
 ## 特性开关
 
@@ -43,14 +43,14 @@ bms-table = { version = "0.6", default-features = false, features = ["serde", "s
 - `Trophy`：奖杯要求（最大 miss 率、最低得分率）。
 - `fetch::reqwest::fetch_table(url)`：从网页或头部 JSON 源拉取并解析完整表。
 - `fetch::reqwest::fetch_table_full(url)`：同时返回原始头部与数据 JSON 文本。
-- `fetch::reqwest::fetch_table_list(url)`：获取难度表索引列表。
-- `fetch::reqwest::fetch_table_list_full(url)`：返回索引项与原始 JSON 文本。
+- `fetch::reqwest::fetch_table_list(url)`：获取难度表列表。
+- `fetch::reqwest::fetch_table_list_full(url)`：返回列表项与原始 JSON 文本。
 - `fetch::get_web_header_json_value(str)`：将响应字符串解析为头部 JSON 或其 URL（`HeaderQueryContent`）。
 - `fetch::extract_bmstable_url(html)`：从 HTML 中提取 bmstable 头部地址。
 
 ## 示例程序
 
-- `examples/single_fetch_index.rs`：单次抓取索引并打印前若干条目。
+- `examples/single_fetch_index.rs`：单次抓取难度表列表并打印前若干条目。
 - `examples/multi_fetch.rs`：并发抓取多个难度表并输出进度与结果。
 
 ## 文档与链接

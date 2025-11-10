@@ -1,4 +1,4 @@
-//! 单次抓取索引示例：使用 fetch_table_list_full
+//! 单次抓取难度表列表示例：使用 fetch_table_list_full
 //!
 //! 运行方式：
 //! - 默认启用 `reqwest` 特性，可直接运行：
@@ -18,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
 
     let client = make_lenient_client()?;
     let (indexes, raw) = fetch_table_list_full(&client, url).await?;
-    println!("Fetched {} index entries.", indexes.len());
+    println!("Fetched {} table list entries.", indexes.len());
 
     for (i, item) in indexes.iter().take(10).enumerate() {
         println!("#{i}: {} [{}] -> {}", item.name, item.symbol, item.url);
