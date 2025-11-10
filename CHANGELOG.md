@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.1](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.9.0...v0.9.1) (2025-11-10)
+
+
+### Features
+
+* **reqwest:** make client more lenient ([dbed960](https://github.com/MiyakoMeow/bms-table-rs/commit/dbed960cb9f443b6e2da859a5f34ee03cda182ef))
+
+
+### Bug Fixes
+
+* **ci/publish:** spec toolchain ([03bd303](https://github.com/MiyakoMeow/bms-table-rs/commit/03bd30304034200dd3714cc942b385a0d315af89))
+* **ci/release:** set type rust ([76a7f13](https://github.com/MiyakoMeow/bms-table-rs/commit/76a7f133f6b6c6af5627ab494860523e75d6fba4))
+
+
+### Miscellaneous Chores
+
+* change release to 0.9.1 ([b793e48](https://github.com/MiyakoMeow/bms-table-rs/commit/b793e48200d32859d3f6125da0a21b3b51b2db42))
+
 ## [0.9.0](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.8.0...v0.9.0) (2025-11-10)
 
 
