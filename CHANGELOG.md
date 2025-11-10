@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.9.0...v0.9.1) (2025-11-10)
+
+
+### Bug Fixes
+
+* **ci/publish:** spec toolchain ([03bd303](https://github.com/MiyakoMeow/bms-table-rs/commit/03bd30304034200dd3714cc942b385a0d315af89))
+
 ## [0.9.0](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.8.0...v0.9.0) (2025-11-10)
 
 
