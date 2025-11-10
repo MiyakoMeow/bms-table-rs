@@ -1,0 +1,6 @@
+{
+    ".": {
+        "package-name": "bms-table",
+        "bump-minor-pre-major": true
+    }
+}
