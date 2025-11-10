@@ -1,9 +1,8 @@
 # BMS 难度表数据获取与解析库
 
-[<img alt="github" src="https://img.shields.io/badge/github-MiyakoMeow/bms-table-rs-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/MiyakoMeow/bms-table-rs)
-[<img alt="crates.io" src="https://img.shields.io/crates/v/syn.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/bms-table)
-[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-bms-table-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/bms-table)
-[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/MiyakoMeow/bms-table-rs/ci.yml?branch=master&style=for-the-badge" height="20">](https://github.com/MiyakoMeow/bms-table-rs/actions?query=branch%3Amaster)
+[<img alt="crates.io" src="https://img.shields.io/crates/v/bms-table.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/bms-table)
+[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-bms_table-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/bms-table)
+[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/MiyakoMeow/bms-table-rs/rust.yml?branch=main&style=for-the-badge" height="20">](https://github.com/MiyakoMeow/bms-table-rs/actions?query=branch%3main)
 
 使用 Rust 实现的 BMS 难度表获取与解析库。支持从网页或头部 JSON 构建完整数据结构，覆盖表头、课程、奖杯与谱面条目，并提供难度表列表获取能力。
 
