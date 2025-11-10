@@ -137,6 +137,8 @@ fn table_urls() -> Vec<String> {
             "http://zris.work/bmstable/pms_insane/insane_pmsdatabase_header.json",
             "https://pmsdifficulty.xxxxxxxx.jp/_pastoral_insane_table.html",
             "https://www.notepara.com/glassist/10k",
+            "http://onzonium.at-ninja.jp/dp/",
+            "https://lr2.sakura.ne.jp/overjoy.php",
         ]
         .into_iter()
         .filter(|url| !url.is_empty())
