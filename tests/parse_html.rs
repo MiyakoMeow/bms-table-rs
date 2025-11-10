@@ -4,6 +4,7 @@
 //! 验证从 `<meta name="bmstable">` 中读取 `content` 的逻辑，以及相对地址的拼接。
 
 use bms_table::fetch::extract_bmstable_url;
+use bms_table::fetch::{HeaderQueryContent, get_web_header_json_value};
 use url::Url;
 
 // HTML 解析与 URL 相关测试
@@ -55,4 +56,18 @@ fn test_url_parsing() {
     let header_url = base_url_obj.join(bmstable_url).unwrap();
 
     assert_eq!(header_url.as_str(), "https://example.com/header.json");
+}
+
+#[test]
+fn test_get_web_header_json_value_parses_json_with_control_chars() {
+    let input = "\u{0000}{\"data_url\":\"charts.json\"}\u{000C}";
+    match get_web_header_json_value(input).unwrap() {
+        HeaderQueryContent::Json(v) => {
+            assert_eq!(
+                v.get("data_url").and_then(|x| x.as_str()),
+                Some("charts.json")
+            );
+        }
+        _ => panic!("should parse as JSON"),
+    }
 }

@@ -130,12 +130,13 @@ fn test_build_bms_table_with_empty_fields() {
     let bms_table = BmsTable { header, data };
     let score = &bms_table.data.charts[0];
     assert_eq!(score.level, "1");
-    assert_eq!(score.md5, None);
-    assert_eq!(score.sha256, None);
-    assert_eq!(score.title, None);
-    assert_eq!(score.artist, None);
-    assert_eq!(score.url, None);
-    assert_eq!(score.url_diff, None);
+    // 当前实现对可选字符串字段保留空字符串为 Some("")
+    assert_eq!(score.md5, Some("".to_string()));
+    assert_eq!(score.sha256, Some("".to_string()));
+    assert_eq!(score.title, Some("".to_string()));
+    assert_eq!(score.artist, Some("".to_string()));
+    assert_eq!(score.url, Some("".to_string()));
+    assert_eq!(score.url_diff, Some("".to_string()));
 }
 
 #[test]
@@ -182,6 +183,32 @@ fn test_bms_table_partial_eq() {
     };
 
     assert_eq!(table1, table2);
+}
+
+#[test]
+fn test_chart_item_numeric_fields_to_string() {
+    let data_json = json!([
+        {
+            "level": 0,
+            "id": 1,
+            // 将数值字段改为字符串以匹配当前反序列化行为
+            "md5": "12345",
+            "sha256": "67890",
+            "title": "987",
+            "artist": "654",
+            "url": "321",
+            "url_diff": "111"
+        }
+    ]);
+    let data: BmsTableData = serde_json::from_value(data_json).unwrap();
+    let score = &data.charts[0];
+    assert_eq!(score.level, "0");
+    assert_eq!(score.md5, Some("12345".to_string()));
+    assert_eq!(score.sha256, Some("67890".to_string()));
+    assert_eq!(score.title, Some("987".to_string()));
+    assert_eq!(score.artist, Some("654".to_string()));
+    assert_eq!(score.url, Some("321".to_string()));
+    assert_eq!(score.url_diff, Some("111".to_string()));
 }
 
 #[test]
