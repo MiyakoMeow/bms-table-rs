@@ -43,8 +43,8 @@ bms-table = { version = "0.6", default-features = false, features = ["serde", "s
 - `Trophy`：奖杯要求（最大 miss 率、最低得分率）。
 - `fetch::reqwest::fetch_table(url)`：从网页或头部 JSON 源拉取并解析完整表。
 - `fetch::reqwest::fetch_table_full(url)`：同时返回原始头部与数据 JSON 文本。
-- `fetch::reqwest::fetch_table_index(url)`：获取难度表索引列表。
-- `fetch::reqwest::fetch_table_index_full(url)`：返回索引项与原始 JSON 文本。
+- `fetch::reqwest::fetch_table_list(url)`：获取难度表索引列表。
+- `fetch::reqwest::fetch_table_list_full(url)`：返回索引项与原始 JSON 文本。
 - `fetch::get_web_header_json_value(str)`：将响应字符串解析为头部 JSON 或其 URL（`HeaderQueryContent`）。
 - `fetch::extract_bmstable_url(html)`：从 HTML 中提取 bmstable 头部地址。
 

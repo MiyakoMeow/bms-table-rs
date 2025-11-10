@@ -26,7 +26,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 use url::Url;
 
-use crate::{BmsTable, BmsTableIndexItem, BmsTableRaw};
+use crate::{BmsTable, BmsTableInfo, BmsTableRaw};
 
 /// 从网页或头部 JSON 源拉取并解析完整的 BMS 难度表。
 ///
@@ -122,23 +122,23 @@ pub async fn fetch_table(client: &reqwest::Client, web_url: &str) -> Result<BmsT
 
 /// 获取 BMS 表索引列表。
 ///
-/// 从提供的 `web_url` 下载 JSON 数组并解析为 [`crate::BmsTableIndexItem`] 列表。
+/// 从提供的 `web_url` 下载 JSON 数组并解析为 [`crate::BmsTableInfo`] 列表。
 /// 仅要求每个元素包含 `name`、`symbol` 与 `url`（字符串），其他字段将被收集到 `extra` 中。
-pub async fn fetch_table_index(
+pub async fn fetch_table_list(
     client: &reqwest::Client,
     web_url: &str,
-) -> Result<Vec<BmsTableIndexItem>> {
-    let (out, _raw) = fetch_table_index_full(client, web_url).await?;
+) -> Result<Vec<BmsTableInfo>> {
+    let (out, _raw) = fetch_table_list_full(client, web_url).await?;
     Ok(out)
 }
 
 /// 获取 BMS 表索引列表及其原始 JSON 字符串。
 ///
 /// 返回解析后的索引项数组与响应的原始 JSON 文本，便于记录或调试。
-pub async fn fetch_table_index_full(
+pub async fn fetch_table_list_full(
     client: &reqwest::Client,
     web_url: &str,
-) -> Result<(Vec<BmsTableIndexItem>, String)> {
+) -> Result<(Vec<BmsTableInfo>, String)> {
     let web_url = Url::parse(web_url)?;
     let response_text = client
         .get(web_url)
@@ -185,7 +185,7 @@ pub async fn fetch_table_index_full(
             m
         };
 
-        let entry = BmsTableIndexItem {
+        let entry = BmsTableInfo {
             name: name.to_string(),
             symbol: symbol.to_string(),
             url,

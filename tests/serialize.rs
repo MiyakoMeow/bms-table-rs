@@ -1,7 +1,7 @@
 #![cfg(feature = "serde")]
 
 use bms_table::{BmsTableData, BmsTableHeader, ChartItem};
-use bms_table::{BmsTableIndex, BmsTableIndexItem};
+use bms_table::{BmsTableInfo, BmsTableList};
 use std::collections::BTreeMap;
 use url::Url;
 
@@ -121,7 +121,7 @@ fn test_bms_table_data_serialize_array() {
 
 #[test]
 fn test_bms_table_index_serialize_array() {
-    let item1 = BmsTableIndexItem {
+    let item1 = BmsTableInfo {
         name: ".WAS難易度表".to_string(),
         symbol: "．".to_string(),
         url: Url::parse("https://darksabun.club/table/archive/was/").unwrap(),
@@ -142,7 +142,7 @@ fn test_bms_table_index_serialize_array() {
             m
         },
     };
-    let item2 = BmsTableIndexItem {
+    let item2 = BmsTableInfo {
         name: "[F]".to_string(),
         symbol: "[F]".to_string(),
         url: Url::parse("https://bms.hexlataia.xyz/tables/convert/%5BF%5D/table.html").unwrap(),
@@ -160,14 +160,14 @@ fn test_bms_table_index_serialize_array() {
             m
         },
     };
-    let index = BmsTableIndex {
+    let index = BmsTableList {
         indexes: vec![item1, item2],
     };
 
     let value = serde_json::to_value(&index).unwrap();
     assert!(value.is_array());
 
-    let parsed: BmsTableIndex = serde_json::from_value(value).unwrap();
+    let parsed: BmsTableList = serde_json::from_value(value).unwrap();
     assert_eq!(parsed.indexes.len(), 2);
     assert_eq!(parsed.indexes[0].name, ".WAS難易度表");
     assert_eq!(parsed.indexes[1].symbol, "[F]");

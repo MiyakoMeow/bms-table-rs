@@ -60,9 +60,9 @@
 //! # #[tokio::main]
 //! # #[cfg(feature = "reqwest")]
 //! # async fn main() -> anyhow::Result<()> {
-//! use bms_table::fetch::reqwest::{fetch_table_index, make_lenient_client};
+//! use bms_table::fetch::reqwest::{fetch_table_list, make_lenient_client};
 //! let client = make_lenient_client()?;
-//! let indexes = fetch_table_index(&client, "https://example.com/table_index.json").await?;
+//! let indexes = fetch_table_list(&client, "https://example.com/table_index.json").await?;
 //! assert!(!indexes.is_empty());
 //! # Ok(())
 //! # }
@@ -251,7 +251,7 @@ pub struct BmsTableRaw {
 /// 其余诸如 `tag1`、`tag2`、`comment`、`date`、`state`、`tag_order` 等字段统一收集到 `extra`。
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct BmsTableIndexItem {
+pub struct BmsTableInfo {
     /// 表名称，如 ".WAS難易度表"
     pub name: String,
     /// 表符号，如 "．" 或 "[F]"
@@ -266,12 +266,12 @@ pub struct BmsTableIndexItem {
 
 /// BMS 表索引列表包装类型。
 ///
-/// 透明序列化为数组：序列化/反序列化时行为与内部的 `Vec<BmsTableIndexItem>` 相同，
+/// 透明序列化为数组：序列化/反序列化时行为与内部的 `Vec<BmsTableInfo>` 相同，
 /// 因此序列化结果为一个 JSON 数组而不是对象。
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct BmsTableIndex {
+pub struct BmsTableList {
     /// 索引条目数组
-    pub indexes: Vec<BmsTableIndexItem>,
+    pub indexes: Vec<BmsTableInfo>,
 }
