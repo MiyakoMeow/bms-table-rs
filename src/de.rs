@@ -137,7 +137,28 @@ impl<'de> Deserialize<'de> for CourseInfo {
 }
 
 /// 将空字符串反序列化为 `None` 的通用辅助函数。
-pub(crate) fn empty_string_as_none<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+pub(crate) fn de_numstring<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt = Option::<Value>::deserialize(deserializer)?;
+    let Some(value) = opt else {
+        return Err(serde::de::Error::custom(
+            "expected string or number, found None",
+        ));
+    };
+    match value {
+        Value::String(s) => Ok(s),
+        Value::Number(n) => Ok(n.to_string()),
+        other => Err(serde::de::Error::custom(format!(
+            "expected string or number, got {}",
+            other
+        ))),
+    }
+}
+
+/// 将空字符串反序列化为 `None` 的通用辅助函数。
+pub(crate) fn de_string_opt<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
