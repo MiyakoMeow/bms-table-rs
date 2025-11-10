@@ -26,7 +26,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 use url::Url;
 
-use crate::{BmsTable, BmsTableInfo, BmsTableRaw};
+use crate::{BmsTable, BmsTableInfo, BmsTableRaw, fetch::replace_control_chars};
 
 /// 从网页或头部 JSON 源拉取并解析完整的 BMS 难度表。
 ///
@@ -97,7 +97,9 @@ pub async fn fetch_table_full(
         .text()
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    let data_json: Value = serde_json::from_str(&data_response)?;
+    // 在解析前移除非法控制字符，但保持原始 data_raw 不变
+    let data_cleaned = replace_control_chars(&data_response);
+    let data_json: Value = serde_json::from_str(&data_cleaned)?;
     // 直接使用库内反序列化生成 BmsTable
     let header: crate::BmsTableHeader = serde_json::from_value(header_json)
         .map_err(|e| anyhow!("When parsing header json: {e}"))?;
@@ -149,7 +151,9 @@ pub async fn fetch_table_list_full(
         .await
         .map_err(|e| anyhow!("When parsing table list response: {e}"))?;
 
-    let value: Value = serde_json::from_str(&response_text)?;
+    // 在解析前移除非法控制字符，但保持原始响应文本不变
+    let cleaned = replace_control_chars(&response_text);
+    let value: Value = serde_json::from_str(&cleaned)?;
     let arr = value
         .as_array()
         .ok_or_else(|| anyhow!("Table list root is not an array"))?;

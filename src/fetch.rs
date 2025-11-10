@@ -43,6 +43,14 @@ pub enum HeaderQueryContent {
     Json(Value),
 }
 
+/// 移除 JSON 文本中的非打印控制字符（保留 `\n`、`\r`、`\t`）。
+///
+/// 目的：某些站点返回的 JSON 前后可能夹杂非法控制字符，
+/// 在解析前进行清洗以提高兼容性，同时不影响原始 raw 文本的保存。
+pub(crate) fn replace_control_chars(s: &str) -> String {
+    s.chars().filter(|ch: &char| !ch.is_control()).collect()
+}
+
 /// 将响应字符串解析为头部 JSON 或其 URL。
 ///
 /// 解析策略：优先尝试按 JSON 解析；若失败则按 HTML 解析并提取 bmstable URL。
@@ -56,8 +64,9 @@ pub enum HeaderQueryContent {
 ///
 /// 当输入为 HTML 且未找到 bmstable 字段时返回错误。
 pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQueryContent> {
-    // 先尝试按 JSON 解析；失败则当作 HTML 提取 bmstable URL
-    match serde_json::from_str::<Value>(response_str) {
+    // 先尝试按 JSON 解析（解析前移除非法控制字符）；失败则当作 HTML 提取 bmstable URL
+    let cleaned = replace_control_chars(response_str);
+    match serde_json::from_str::<Value>(&cleaned) {
         Ok(header_json) => Ok(HeaderQueryContent::Json(header_json)),
         Err(_) => {
             let bmstable_url = extract_bmstable_url(response_str)?;
