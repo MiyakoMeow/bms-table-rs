@@ -1,6 +1,6 @@
 {
     ".": {
-        "package-name": "bms-table",
+        "package-name": "bms-table-rs",
         "bump-minor-pre-major": true
     }
 }
