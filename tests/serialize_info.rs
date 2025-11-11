@@ -30,8 +30,7 @@ fn test_bms_table_list_serialize_array() {
     let item2 = BmsTableInfo {
         name: "[F]".to_string(),
         symbol: "[F]".to_string(),
-        url: Url::parse("https://bms.hexlataia.xyz/tables/convert/%5BF%5D/table.html")
-            .unwrap(),
+        url: Url::parse("https://bms.hexlataia.xyz/tables/convert/%5BF%5D/table.html").unwrap(),
         extra: {
             let mut m = BTreeMap::new();
             m.insert("tag1".to_string(), serde_json::json!("SP"));
