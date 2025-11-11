@@ -4,7 +4,7 @@
   "semanticCommits": "enabled",
   "fetchReleaseNotes": true,
   "enabledManagers": ["cargo", "github-actions"],
-  "schedule": ["at any time"],
+  "schedule": ["20 * * * *"],
   "commitMessagePrefix": "chore(deps): ",
   "dependencyDashboard": true,
   "prHourlyLimit": 0,
