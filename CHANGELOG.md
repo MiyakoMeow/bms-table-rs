@@ -1,24 +1,5 @@
 # Changelog
 
-## [1.0.0](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.9.1...v1.0.0) (2025-11-11)
-
-
-### ⚠ BREAKING CHANGES
-
-* add json_url to BmsTableRaw, feature check
-
-### Features
-
-* add json_url to BmsTableRaw, feature check ([7f116d3](https://github.com/MiyakoMeow/bms-table-rs/commit/7f116d3fc92614c4bb419e72781cd1f1e0402098))
-
-
-### Bug Fixes
-
-* fmt ([8cc8cf2](https://github.com/MiyakoMeow/bms-table-rs/commit/8cc8cf2ca91242ebde854381d48856b9bd021614))
-* **README:** badges ([0dbbaaf](https://github.com/MiyakoMeow/bms-table-rs/commit/0dbbaaf35c48c48fe211d7d54e49d4d575690f1e))
-* **README:** badges ([771f5a6](https://github.com/MiyakoMeow/bms-table-rs/commit/771f5a645f1ee12dc88cbb8c7033865c118f3ed9))
-* **README:** badges style ([fdbed95](https://github.com/MiyakoMeow/bms-table-rs/commit/fdbed954fe69ec2641742f9a4220a47ab3ea36f9))
-
 ## [0.9.1](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.9.0...v0.9.1) (2025-11-10)
 
 
