@@ -90,7 +90,7 @@ pub async fn fetch_table_full(
         .ok_or_else(|| anyhow!("\"data_url\" is not a string!"))?;
     let data_url = header_url.join(data_url_str)?;
     let data_response = client
-        .get(data_url)
+        .get(data_url.clone())
         .send()
         .await
         .map_err(|e| anyhow!("When fetching web: {e}"))?
@@ -108,7 +108,9 @@ pub async fn fetch_table_full(
     Ok((
         BmsTable { header, data },
         BmsTableRaw {
+            header_json_url: header_url,
             header_raw,
+            data_json_url: data_url,
             data_raw: data_response,
         },
     ))

@@ -34,8 +34,16 @@ jobs:
 
       - name: Build crate
         run: cargo build --verbose
-      - name: Clippy Check
-        run: cargo clippy --verbose --all-features
+
+      - name: "Clippy Check"
+        run: cargo clippy --all-targets --verbose -- -D warnings
+      - name: "Clippy Check: --no-default-features"
+        run: cargo clippy --all-targets --verbose --no-default-features -- -D warnings
+      - name: "Clippy Check: --no-default-features --features serde"
+        run: cargo clippy --all-targets --verbose --no-default-features --features serde -- -D warnings
+      - name: "Clippy Check: --no-default-features --features scraper"
+        run: cargo clippy --all-targets --verbose --no-default-features --features scraper -- -D warnings
+
       - name: Test crate
         run: cargo test --verbose --all-features
       - name: Format Check

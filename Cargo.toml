@@ -13,7 +13,7 @@ keywords = ["bms", "table", "data", "fetch", "parser"]
 [features]
 default = ["serde", "scraper", "reqwest"]
 serde = ["dep:serde", "dep:serde_json"]
-scraper = ["dep:scraper", "dep:url"]
+scraper = ["serde", "dep:scraper", "dep:url"]
 
 reqwest = ["scraper", "dep:reqwest"]
 

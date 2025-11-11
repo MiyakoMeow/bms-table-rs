@@ -84,8 +84,10 @@ pub mod fetch;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use serde_json::Value;
+#[cfg(feature = "serde")]
 use std::collections::BTreeMap;
 
+#[cfg(feature = "serde")]
 use crate::de::{de_numstring, deserialize_course_groups, deserialize_level_order};
 
 /// 顶层 BMS 难度表数据结构。
@@ -210,8 +212,14 @@ pub struct Trophy {
 /// 完整的原始 JSON 字符串集合。
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BmsTableRaw {
+    /// 头部 JSON 的完整地址
+    #[cfg(feature = "scraper")]
+    pub header_json_url: url::Url,
     /// 原始表头 JSON 字符串
     pub header_raw: String,
+    /// 谱面数据 JSON 的完整地址
+    #[cfg(feature = "scraper")]
+    pub data_json_url: url::Url,
     /// 原始谱面数据 JSON 字符串
     pub data_raw: String,
 }
@@ -228,7 +236,11 @@ pub struct BmsTableInfo {
     /// 表符号，如 "．" 或 "[F]"
     pub symbol: String,
     /// 表地址（为完整的 `url::Url` 类型）
+    #[cfg(feature = "scraper")]
     pub url: url::Url,
+    /// 表地址（为完整的 `url::Url` 类型）
+    #[cfg(not(feature = "scraper"))]
+    pub url: String,
     /// 额外字段集合（用于保存除必需字段外的所有数据）
     #[cfg(feature = "serde")]
     #[cfg_attr(feature = "serde", serde(flatten))]
