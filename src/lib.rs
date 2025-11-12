@@ -1,24 +1,24 @@
-//! BMS 难度表获取与解析
+//! BMS difficulty table fetching and parsing
 //!
-//! 提供从网页或头部 JSON 构建完整的 BMS 难度表数据结构，涵盖表头、课程、奖杯与谱面条目。
-//! 结合特性开关实现网络抓取与 HTML 解析，适用于 CLI 工具、服务端程序或数据处理流水线。
+//! Provides building a complete BMS difficulty table data structure from a web page or a header JSON, covering the header, courses, trophies, and chart items.
+//! Combined with feature flags, it implements network fetching and HTML parsing, suitable for CLI tools, server programs, or data-processing pipelines.
 //!
-//! # 功能一览
+//! # Feature overview
 //!
-//! - 解析表头 JSON，未识别字段保留在 `extra` 以保证向前兼容；
-//! - 解析谱面数据，兼容纯数组与 `{ charts: [...] }` 两种格式；
-//! - 课程支持将 `md5`/`sha256` 列表自动转换为谱面条目，缺失 `level` 时补为 "0"；
-//! - 从 HTML 的 `<meta name="bmstable">` 提取头部 JSON 地址；
-//! - 一站式网络获取 API（网页 → 头部 JSON → 谱面数据）；
-//! - 支持获取难度表列表。
+//! - Parse header JSON, preserving unrecognized fields in `extra` for forward compatibility;
+//! - Parse chart data, supporting both a plain array and `{ charts: [...] }` formats;
+//! - Courses automatically convert `md5`/`sha256` lists into chart items, filling missing `level` with "0";
+//! - Extract the header JSON URL from HTML `<meta name="bmstable">`;
+//! - One-stop network fetching APIs (web page → header JSON → chart data);
+//! - Support fetching a list of difficulty tables.
 //!
-//! # 特性开关
+//! # Feature flags
 //!
-//! - `serde`：启用类型的序列化/反序列化支持（默认启用）。
-//! - `scraper`：启用 HTML 解析与 bmstable 头部地址提取（默认启用；`reqwest` 隐式启用该特性）。
-//! - `reqwest`：启用网络获取实现（默认启用；需要 `tokio` 运行时）。
+//! - `serde`: enable serialization/deserialization support for types (enabled by default).
+//! - `scraper`: enable HTML parsing and bmstable header URL extraction (enabled by default; implicitly enabled by `reqwest`).
+//! - `reqwest`: enable the network fetching implementation (enabled by default; requires the `tokio` runtime).
 //!
-//! # 快速上手（网络获取）
+//! # Quick start (network fetching)
 //!
 //! ```rust,no_run
 //! # #[tokio::main]
@@ -36,7 +36,7 @@
 //! # fn main() {}
 //! ```
 //!
-//! # 无网络使用（直接解析 JSON）
+//! # Offline usage (parse JSON directly)
 //!
 //! ```rust,no_run
 //! # #[cfg(feature = "serde")]
@@ -54,7 +54,7 @@
 //! # fn main() {}
 //! ```
 //!
-//! # 获取难度表列表示例
+//! # Example: fetch table list
 //!
 //! ```rust,no_run
 //! # #[tokio::main]
@@ -70,7 +70,7 @@
 //! # fn main() {}
 //! ```
 //!
-//! 提示：启用 `reqwest` 特性将隐式启用 `scraper`，以支持从网页内容中定位 bmstable 头部地址。
+//! Hint: enabling the `reqwest` feature implicitly enables `scraper` to support locating the bmstable header URL from page content.
 
 #![warn(missing_docs)]
 #![warn(clippy::must_use_candidate)]
@@ -90,171 +90,167 @@ use std::collections::BTreeMap;
 #[cfg(feature = "serde")]
 use crate::de::{de_numstring, deserialize_course_groups, deserialize_level_order};
 
-/// 顶层 BMS 难度表数据结构。
+/// Top-level BMS difficulty table data structure.
 ///
-/// 将表头元数据与谱面数据打包在一起，便于在应用中一次性传递与使用。
+/// Packs header metadata and chart data together to simplify passing and use in applications.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BmsTable {
-    /// 表头信息与额外字段
+    /// Header information and extra fields
     pub header: BmsTableHeader,
-    /// 表数据，包含谱面列表
+    /// Table data containing the chart list
     pub data: BmsTableData,
 }
 
-/// BMS 表头信息。
+/// BMS header information.
 ///
-/// 该结构严格解析常见字段，并把未识别的字段保存在 `extra` 中，保证向前兼容。
+/// Strictly parses common fields and preserves unrecognized fields in `extra` for forward compatibility.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BmsTableHeader {
-    /// 表格名称，如 "Satellite"
+    /// Table name, e.g. "Satellite"
     pub name: String,
-    /// 表格符号，如 "sl"
+    /// Table symbol, e.g. "sl"
     pub symbol: String,
-    /// 谱面数据文件的URL（原样保存来自header JSON的字符串）
+    /// URL of chart data file (preserves the original string from header JSON)
     pub data_url: String,
-    /// 课程信息数组，每个元素是一个课程组的数组
+    /// Course information as an array of course groups
     #[cfg_attr(
         feature = "serde",
         serde(default, deserialize_with = "deserialize_course_groups")
     )]
     pub course: Vec<Vec<CourseInfo>>,
-    /// 难度等级顺序，包含数字和字符串
+    /// Difficulty level order containing numbers and strings
     #[cfg_attr(
         feature = "serde",
         serde(default, deserialize_with = "deserialize_level_order")
     )]
     pub level_order: Vec<String>,
-    /// 额外数据（来自header JSON中未识别的字段）
+    /// Extra data (unrecognized fields from header JSON)
     #[cfg(feature = "serde")]
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub extra: BTreeMap<String, Value>,
 }
 
-/// BMS 表数据。
+/// BMS table data.
 ///
-/// 仅包含谱面数组。解析时同时兼容纯数组与 `{ charts: [...] }` 两种输入形式。
+/// Contains only the chart array. Parsing supports both a plain array and `{ charts: [...] }` input forms.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 pub struct BmsTableData {
-    /// 谱面数据
+    /// Charts
     pub charts: Vec<ChartItem>,
 }
 
-/// 课程信息。
+/// Course information.
 ///
-/// 描述一个课程的名称、约束、奖杯与谱面集合。解析阶段会将 `md5`/`sha256`
-/// 列表自动转换为对应的 `ChartItem`，并为缺失 `level` 的谱面补充默认值 `"0"`。
+/// Describes a course's name, constraints, trophies and chart set. During parsing, `md5`/`sha256` lists are automatically converted into `ChartItem`s, and charts missing `level` are filled with default value `"0"`.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct CourseInfo {
-    /// 课程名称，如 "Satellite Skill Analyzer 2nd sl0"
+    /// Course name, e.g. "Satellite Skill Analyzer 2nd sl0"
     pub name: String,
-    /// 约束条件列表，如 ["grade_mirror", "gauge_lr2", "ln"]
+    /// Constraint list, e.g. ["grade_mirror", "gauge_lr2", "ln"]
     #[cfg_attr(feature = "serde", serde(default))]
     pub constraint: Vec<String>,
-    /// 奖杯信息列表，定义不同等级的奖杯要求
+    /// List of trophies, defining requirements for different ranks
     #[cfg_attr(feature = "serde", serde(default))]
     pub trophy: Vec<Trophy>,
-    /// 谱面数据列表，包含该课程的所有谱面信息
+    /// List of charts included in the course
     #[cfg_attr(feature = "serde", serde(default))]
     pub charts: Vec<ChartItem>,
 }
 
-/// 谱面数据项。
+/// Chart data item.
 ///
-/// 描述单个 BMS 文件的相关元数据与资源链接。为空字符串的可选字段在反序列化时会
-/// 自动转换为 `None`，以提升数据质量。
+/// Describes metadata and resource links for a single BMS file. Optional fields with empty strings are deserialized as `None` to improve data quality.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ChartItem {
-    /// 难度等级，如 "0"
+    /// Difficulty level, e.g. "0"
     #[cfg_attr(feature = "serde", serde(default, deserialize_with = "de_numstring"))]
     pub level: String,
-    /// 文件的MD5哈希值
+    /// MD5 hash of the file
     pub md5: Option<String>,
-    /// 文件的SHA256哈希值
+    /// SHA256 hash of the file
     pub sha256: Option<String>,
-    /// 歌曲标题
+    /// Song title
     pub title: Option<String>,
-    /// 歌曲副标题
+    /// Song subtitle
     pub subtitle: Option<String>,
-    /// 艺术家名称
+    /// Artist name
     pub artist: Option<String>,
-    /// 歌曲副艺术家
+    /// Song sub-artist
     pub subartist: Option<String>,
-    /// 文件下载链接
+    /// File download URL
     pub url: Option<String>,
-    /// 差分文件下载链接（可选）
+    /// Differential file download URL (optional)
     pub url_diff: Option<String>,
-    /// 额外数据
+    /// Extra data
     #[cfg(feature = "serde")]
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub extra: BTreeMap<String, Value>,
 }
 
-/// 奖杯信息。
+/// Trophy information.
 ///
-/// 定义达成特定奖杯的条件，包括最大 miss 率与最低得分率等要求。
+/// Defines conditions to achieve specific trophies, including maximum miss rate and minimum score rate.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Trophy {
-    /// 奖杯名称，如 "silvermedal" 或 "goldmedal"
+    /// Trophy name, e.g. "silvermedal" or "goldmedal"
     pub name: String,
-    /// 最大miss率（百分比），如 5.0 表示最大5%的miss率
+    /// Maximum miss rate (percent), e.g. 5.0 means at most 5% miss rate
     pub missrate: f64,
-    /// 最小得分率（百分比），如 70.0 表示至少70%的得分率
+    /// Minimum score rate (percent), e.g. 70.0 means at least 70% score rate
     pub scorerate: f64,
 }
 
-/// 完整的原始 JSON 字符串集合。
+/// Complete set of original JSON strings.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BmsTableRaw {
-    /// 头部 JSON 的完整地址
+    /// Full URL of the header JSON
     #[cfg(feature = "scraper")]
     pub header_json_url: url::Url,
-    /// 原始表头 JSON 字符串
+    /// Raw header JSON string
     pub header_raw: String,
-    /// 谱面数据 JSON 的完整地址
+    /// Full URL of the chart data JSON
     #[cfg(feature = "scraper")]
     pub data_json_url: url::Url,
-    /// 原始谱面数据 JSON 字符串
+    /// Raw chart data JSON string
     pub data_raw: String,
 }
 
-/// BMS 难度表列表条目。
+/// BMS difficulty table list item.
 ///
-/// 表示一个难度表在列表中的基本信息。仅要求 `name`、`symbol`、`url` 三个字段，
-/// 其余诸如 `tag1`、`tag2`、`comment`、`date`、`state`、`tag_order` 等字段统一收集到 `extra`。
+/// Represents the basic information of a difficulty table in a list. Only `name`, `symbol`, and `url` are required; other fields such as `tag1`, `tag2`, `comment`, `date`, `state`, and `tag_order` are collected into `extra`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BmsTableInfo {
-    /// 表名称，如 ".WAS難易度表"
+    /// Table name, e.g. ".WAS Difficulty Table"
     pub name: String,
-    /// 表符号，如 "．" 或 "[F]"
+    /// Table symbol, e.g. "．" or "[F]"
     pub symbol: String,
-    /// 表地址（为完整的 `url::Url` 类型）
+    /// Table URL (as a full `url::Url` type)
     #[cfg(feature = "scraper")]
     pub url: url::Url,
-    /// 表地址（为完整的 `url::Url` 类型）
+    /// Table URL (as a full `url::Url` type)
     #[cfg(not(feature = "scraper"))]
     pub url: String,
-    /// 额外字段集合（用于保存除必需字段外的所有数据）
+    /// Extra fields collection (stores all data except required fields)
     #[cfg(feature = "serde")]
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub extra: BTreeMap<String, Value>,
 }
 
-/// BMS 难度表列表包装类型。
+/// Wrapper type for the list of BMS difficulty tables.
 ///
-/// 透明序列化为数组：序列化/反序列化时行为与内部的 `Vec<BmsTableInfo>` 相同，
-/// 因此序列化结果为一个 JSON 数组而不是对象。
+/// Transparently serialized as an array: serialization/deserialization behaves the same as the internal `Vec<BmsTableInfo>`, resulting in a JSON array rather than an object.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 pub struct BmsTableList {
-    /// 列表条目数组
+    /// List of entries
     pub indexes: Vec<BmsTableInfo>,
 }

@@ -1,13 +1,13 @@
-//! JSON 解析与数据结构反序列化的单元测试
+//! Unit tests for JSON parsing and data structure deserialization
 //!
-//! 覆盖表头、课程、谱面数据的常见与边界输入，确保反序列化与字段兼容行为正确。
+//! Covers common and edge inputs for headers, courses, and chart data to ensure deserialization and field compatibility behave correctly.
 #![cfg(feature = "serde")]
 
 use bms_table::{BmsTable, BmsTableData, BmsTableHeader, CourseInfo};
 use serde_json::json;
 use std::collections::BTreeMap;
 
-// JSON 解析相关测试：来自原 lib_tests.rs 与 fetch_tests.rs
+// JSON parsing related tests: derived from original lib_tests.rs and fetch_tests.rs
 
 #[test]
 fn test_build_bms_table_from_json() {
@@ -130,7 +130,7 @@ fn test_build_bms_table_with_empty_fields() {
     let bms_table = BmsTable { header, data };
     let score = &bms_table.data.charts[0];
     assert_eq!(score.level, "1");
-    // 当前实现对可选字符串字段保留空字符串为 Some("")
+    // Current behavior keeps empty strings as Some("") for optional string fields
     assert_eq!(score.md5, Some("".to_string()));
     assert_eq!(score.sha256, Some("".to_string()));
     assert_eq!(score.title, Some("".to_string()));
@@ -191,7 +191,7 @@ fn test_chart_item_numeric_fields_to_string() {
         {
             "level": 0,
             "id": 1,
-            // 将数值字段改为字符串以匹配当前反序列化行为
+            // Convert numeric fields to strings to match current deserialization behavior
             "md5": "12345",
             "sha256": "67890",
             "title": "987",
@@ -217,13 +217,13 @@ fn test_build_bms_table_invalid_json() {
         "name": "Test Table",
         "symbol": "test",
         "data_url": "charts.json"
-        // 缺少必要的字段
+        // Missing required fields
     });
     let data_json = json!([
         {
             "level": "1",
             "id": 1
-            // 缺少必要的字段
+            // Missing required fields
         }
     ]);
     let header: BmsTableHeader = serde_json::from_value(header_json).unwrap();
@@ -468,7 +468,7 @@ fn test_course_info_deserialize_md5_and_sha256_to_charts() {
 
 #[test]
 fn test_json_serialization() {
-    // 测试库内的BmsTableHeader序列化/反序列化
+    // Test serialization/deserialization of BmsTableHeader from the crate
     let header = bms_table::BmsTableHeader {
         name: "Test Table".to_string(),
         symbol: "test".to_string(),
@@ -481,7 +481,7 @@ fn test_json_serialization() {
     let json = serde_json::to_string(&header).unwrap();
     let parsed: bms_table::BmsTableHeader = serde_json::from_str(&json).unwrap();
     let mut expected = header;
-    // 反序列化逻辑：空的 `course: []` 视为扁平形式并包一层空组
+    // Deserialization logic: empty `course: []` is treated as flat form and wrapped with an empty group
     expected.course = vec![Vec::new()];
     assert_eq!(expected, parsed);
 }

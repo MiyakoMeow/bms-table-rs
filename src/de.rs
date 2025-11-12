@@ -1,6 +1,6 @@
-//! 反序列化实现模块
+//! Deserialization implementation module
 //!
-//! 将所有 `Deserialize` 实现与辅助原始类型集中于此，保持 `lib.rs` 仅包含类型定义。
+//! Centralizes all `Deserialize` implementations and helper raw types here, keeping `lib.rs` focused on type definitions.
 #![cfg(feature = "serde")]
 
 use serde::{Deserialize, Deserializer};
@@ -9,8 +9,8 @@ use std::collections::BTreeMap;
 
 use crate::{ChartItem, CourseInfo, Trophy};
 
-/// 字段级反序列化：支持 `course` 为 `Vec<CourseInfo>` 或 `Vec<Vec<CourseInfo>>`，
-/// 并在空数组时返回 `vec![Vec::new()]`，保持旧行为。
+/// Field-level deserialization: supports `course` being `Vec<CourseInfo>` or `Vec<Vec<CourseInfo>>`,
+/// and returns `vec![Vec::new()]` for an empty array to preserve previous behavior.
 pub(crate) fn deserialize_course_groups<'de, D>(
     deserializer: D,
 ) -> Result<Vec<Vec<CourseInfo>>, D::Error>
@@ -34,8 +34,8 @@ where
     }
 }
 
-/// 字段级反序列化：将 `level_order` 的数字或字符串转换为字符串，
-/// 其他类型使用 `to_string()`，缺省时返回空数组。
+/// Field-level deserialization: converts `level_order` numbers or strings to strings,
+/// uses `to_string()` for other types, and returns an empty array by default.
 pub(crate) fn deserialize_level_order<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
 where
     D: Deserializer<'de>,
@@ -51,7 +51,7 @@ where
         .collect())
 }
 
-/// 内部辅助类型：用于更简洁地构造 `CourseInfo`，并处理 md5/sha256 列表。
+/// Internal helper type: used to construct `CourseInfo` more simply and handle md5/sha256 lists.
 #[derive(Deserialize)]
 struct CourseInfoRaw {
     name: String,
@@ -74,7 +74,7 @@ impl TryFrom<CourseInfoRaw> for CourseInfo {
         let mut charts: Vec<ChartItem> =
             Vec::with_capacity(raw.charts.len() + raw.md5list.len() + raw.sha256list.len());
 
-        // 处理 charts，缺失 level 时补 "0"
+        // Process charts and fill missing level with "0"
         for mut chart_value in raw.charts {
             if chart_value.get("level").is_none() {
                 let obj = chart_value
@@ -136,7 +136,7 @@ impl<'de> Deserialize<'de> for CourseInfo {
     }
 }
 
-/// 将空字符串反序列化为 `None` 的通用辅助函数。
+/// General helper to deserialize empty strings into `None`-like behavior.
 pub(crate) fn de_numstring<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,

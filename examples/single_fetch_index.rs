@@ -1,9 +1,9 @@
-//! 单次抓取难度表列表示例：使用 fetch_table_list_full
+//! Single-run example for fetching the table list: uses fetch_table_list_full
 //!
-//! 运行方式：
-//! - 默认启用 `reqwest` 特性，可直接运行：
+//! How to run:
+//! - With the default `reqwest` feature enabled, run:
 //!   `cargo run --example single_fetch_index`
-//! - 若禁用了默认特性，请显式启用：
+//! - If default features are disabled, explicitly enable:
 //!   `cargo run --example single_fetch_index --features reqwest`
 
 #![cfg_attr(not(feature = "reqwest"), allow(unused_imports))]

@@ -3,7 +3,7 @@ name = "bms-table"
 version = "0.10.1"
 edition = "2024"
 license = "Apache-2.0"
-description = "BMS难度表数据获取器"
+description = "BMS (Be-Music Source) difficulty table parser & fetcher"
 authors = ["MiyakoMeow"]
 repository = "https://github.com/MiyakoMeow/bms-table-rs"
 documentation = "https://docs.rs/bms-table"
@@ -15,7 +15,6 @@ default = ["serde", "scraper", "reqwest"]
 serde = ["dep:serde", "dep:serde_json"]
 scraper = ["serde", "dep:scraper", "dep:url"]
 
-# 转发 reqwest 的 cookies 特性，使客户端可启用 Cookie 存储
 reqwest = ["scraper", "dep:reqwest"]
 
 [dependencies]

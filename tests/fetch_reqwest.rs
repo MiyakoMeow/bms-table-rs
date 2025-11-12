@@ -1,9 +1,9 @@
 #![cfg(feature = "reqwest")]
-//! 网络获取流程的单元测试（需启用 `reqwest` 特性）
+//! Unit tests for network fetching flow (requires the `reqwest` feature)
 //!
-//! 主要检查错误路径与鲁棒性，例如无效地址的错误返回。
+//! Primarily checks error paths and robustness, e.g., errors for invalid URLs.
 
-// 网络相关测试（reqwest 特性开启时）
+// Network-related tests (when the reqwest feature is enabled)
 
 #[tokio::test]
 async fn test_fetch_table_invalid_url() {
