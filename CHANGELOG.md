@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.10.1](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.10.0...v0.10.1) (2025-11-12)
+
+
+### Features
+
+* **reqwest:** client act like a browser ([#10](https://github.com/MiyakoMeow/bms-table-rs/issues/10)) ([c130ce8](https://github.com/MiyakoMeow/bms-table-rs/commit/c130ce84acbf3dbc69597fd917ab00c6c8b2f814))
+
+
+### Bug Fixes
+
+* **ci:** renew renovate config ([#7](https://github.com/MiyakoMeow/bms-table-rs/issues/7)) ([72e47fd](https://github.com/MiyakoMeow/bms-table-rs/commit/72e47fd0d0983c803135f0a057f56a3877af05c0))
+* **ci:** schedule ([fc045b7](https://github.com/MiyakoMeow/bms-table-rs/commit/fc045b70bfad8f2d150212c0f4bde862655244ad))
+* **ci:** use helper bot ([#9](https://github.com/MiyakoMeow/bms-table-rs/issues/9)) ([f7345ab](https://github.com/MiyakoMeow/bms-table-rs/commit/f7345abf96dedf7aff8a21206ae88f2d42c0de6f))
+
+
+### Miscellaneous Chores
+
+* change release to 0.10.1 ([#11](https://github.com/MiyakoMeow/bms-table-rs/issues/11)) ([824b648](https://github.com/MiyakoMeow/bms-table-rs/commit/824b6482e7a4b6332001a5c99c08e3d1b9560c82))
+
 ## [0.10.0](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.9.1...v0.10.0) (2025-11-11)
 
 
