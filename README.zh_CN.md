@@ -11,7 +11,7 @@
 
 - 从 HTML `<meta name="bmstable">` 提取头部 JSON 地址（启用 `scraper`）。
 - 解析表头 JSON 为 `BmsTableHeader`，未识别字段保留到 `extra`。
-- 解析谱面数据为 `BmsTableData`，兼容纯数组与 `{ charts: [...] }` 两种格式。
+- 解析谱面数据为 `BmsTableData`，兼容纯数组。
 - 将课程中的 `md5`/`sha256` 列表自动转换为 `ChartItem`，缺失 `level` 时补为 "0"。
 - 一站式网络获取 API（启用 `reqwest`，隐式启用 `scraper`）。
 - 获取难度表列表。
@@ -26,7 +26,7 @@
 
 - `BmsTable`：顶层数据结构，包含 `header` 与 `data`。
 - `BmsTableHeader`：表头元数据；未识别字段保留到 `extra`。
-- `BmsTableData`：谱面数据数组或 `{ charts }` 透明包装。
+- `BmsTableData`：谱面数据数组。
 - `CourseInfo`：课程信息，支持 `md5`/`sha256` 列表自动转换为谱面。
 - `ChartItem`：谱面条目；空字符串在反序列化时自动转换为 `None`。
 - `Trophy`：奖杯要求（最大 miss 率、最低得分率）。

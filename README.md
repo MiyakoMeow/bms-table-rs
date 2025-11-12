@@ -11,7 +11,7 @@ A Rust library to fetch and parse BMS difficulty tables. It can build a complete
 
 - Extract the header JSON URL from HTML `<meta name="bmstable">` (requires `scraper`).
 - Parse the header JSON into `BmsTableHeader`; unrecognized fields are preserved in `extra`.
-- Parse chart data into `BmsTableData`, supporting either a plain array or `{ charts: [...] }` wrapper.
+- Parse chart data into `BmsTableData`, supporting a plain array.
 - Automatically convert `md5`/`sha256` lists in courses to `ChartItem`; when `level` is missing, fill with "0".
 - One-stop network fetching APIs (enable `reqwest`, which implicitly enables `scraper`).
 - Fetch a list of difficulty tables.
@@ -26,7 +26,7 @@ A Rust library to fetch and parse BMS difficulty tables. It can build a complete
 
 - `BmsTable`: top-level data structure containing `header` and `data`.
 - `BmsTableHeader`: header metadata; unrecognized fields are preserved in `extra`.
-- `BmsTableData`: chart data as an array or a transparent `{ charts }` wrapper.
+- `BmsTableData`: chart data as an array.
 - `CourseInfo`: course information; supports automatically converting `md5`/`sha256` lists to chart items.
 - `ChartItem`: a chart item; empty strings are deserialized as `None`.
 - `Trophy`: trophy requirements (max miss rate, minimum score rate).
