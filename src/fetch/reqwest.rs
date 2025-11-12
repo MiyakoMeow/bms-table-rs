@@ -19,10 +19,11 @@
 //! # }
 //! ```
 #![cfg(feature = "reqwest")]
+use std::collections::BTreeMap;
 
 use anyhow::{Result, anyhow};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde_json::Value;
-use std::collections::BTreeMap;
 use std::time::Duration;
 use url::Url;
 
@@ -213,10 +214,37 @@ pub async fn fetch_table_list_full(
 ///
 /// 注意：生产环境应审慎使用 `danger_accept_invalid_certs`。
 pub fn make_lenient_client() -> Result<reqwest::Client> {
+    // 默认请求头更贴近真实浏览器行为
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("accept"),
+        HeaderValue::from_static(
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+        ),
+    );
+    headers.insert(
+        HeaderName::from_static("accept-language"),
+        HeaderValue::from_static("zh-CN,zh;q=0.9,en;q=0.8"),
+    );
+    headers.insert(
+        HeaderName::from_static("upgrade-insecure-requests"),
+        HeaderValue::from_static("1"),
+    );
+    headers.insert(
+        HeaderName::from_static("connection"),
+        HeaderValue::from_static("keep-alive"),
+    );
+
     let client = reqwest::Client::builder()
+        .default_headers(headers)
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36 bms-table-rs")
         .timeout(Duration::from_secs(60))
         .redirect(reqwest::redirect::Policy::limited(100))
+        // 使重定向时自动附带 Referer，更接近浏览器行为
+        .referer(true)
+        // 启用 Cookie 存储，更贴近真实用户会话
+        .cookie_store(true)
+        // 为兼容少数不规范站点保留宽松的 TLS 设置
         .danger_accept_invalid_certs(true)
         .danger_accept_invalid_hostnames(true)
         .build()
