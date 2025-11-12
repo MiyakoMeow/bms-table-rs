@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.3](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.10.2...v0.10.3) (2025-11-12)
+
+
+### Bug Fixes
+
+* **README:** accepted structure ([#15](https://github.com/MiyakoMeow/bms-table-rs/issues/15)) ([05f1709](https://github.com/MiyakoMeow/bms-table-rs/commit/05f1709764e2508c246dc1dd1f1fd1539821020c))
+
 ## [0.10.2](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.10.1...v0.10.2) (2025-11-12)
 
 
