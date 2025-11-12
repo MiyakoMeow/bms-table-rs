@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.2](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.10.1...v0.10.2) (2025-11-12)
+
+
+### Bug Fixes
+
+* **test:** lib.rs offline test ([#13](https://github.com/MiyakoMeow/bms-table-rs/issues/13)) ([4cdc025](https://github.com/MiyakoMeow/bms-table-rs/commit/4cdc0257f719a322d7306f272cc37e16a6d9e013))
+
 ## [0.10.1](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.10.0...v0.10.1) (2025-11-12)
 
 

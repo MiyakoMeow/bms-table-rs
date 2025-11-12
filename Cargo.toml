@@ -1,6 +1,6 @@
 [package]
 name = "bms-table"
-version = "0.10.1"
+version = "0.10.2"
 edition = "2024"
 license = "Apache-2.0"
 description = "BMS (Be-Music Source) difficulty table parser & fetcher"
