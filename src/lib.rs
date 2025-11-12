@@ -5,12 +5,12 @@
 //!
 //! # Feature overview
 //!
-//! - Parse header JSON, preserving unrecognized fields in `extra` for forward compatibility;
-//! - Parse chart data, supporting both a plain array and `{ charts: [...] }` formats;
+//! - Parse header JSON into [`BmsTableHeader`], preserving unrecognized fields in `extra` for forward compatibility;
+//! - Parse chart data into [`BmsTableData`], supporting a plain array of [`ChartItem`] structure;
 //! - Courses automatically convert `md5`/`sha256` lists into chart items, filling missing `level` with "0";
 //! - Extract the header JSON URL from HTML `<meta name="bmstable">`;
 //! - One-stop network fetching APIs (web page → header JSON → chart data);
-//! - Support fetching a list of difficulty tables.
+//! - Support fetching a list of difficulty tables into [`BmsTableList`]. [An example source page](https://darksabun.club/table/tablelist.html).
 //!
 //! # Feature flags
 //!
