@@ -1,10 +1,10 @@
-//! 数据获取与 HTML 解析辅助模块
+//! Data fetching and HTML parsing helpers
 //!
-//! 在启用 `scraper` 特性时提供 HTML 解析能力，用于从页面的
-//! `<meta name="bmstable" content="...">` 中提取头部 JSON 的地址。
-//! 同时提供一个统一的入口将响应字符串解析为头部 JSON 或其 URL。
+//! Provides HTML parsing when the `scraper` feature is enabled, used to extract the header JSON URL from
+//! `<meta name="bmstable" content="...">` in a page.
+//! Also provides a unified entry to parse a response string into the header JSON or its URL.
 //!
-//! # 示例
+//! # Examples
 //!
 //! ```rust
 //! # use bms_table::fetch::{get_web_header_json_value, HeaderQueryContent};
@@ -30,41 +30,41 @@ use anyhow::{Result, anyhow};
 use scraper::{Html, Selector};
 use serde_json::Value;
 
-/// [`get_web_header_json_value`] 的返回类型。
+/// Return type of [`get_web_header_json_value`].
 ///
-/// - 当输入是 HTML 时，返回从 `<meta name="bmstable">` 提取的 URL；
-/// - 当输入是 JSON 时，返回解析后的 JSON 值。
+/// - If the input is HTML, returns the URL extracted from `<meta name="bmstable">`;
+/// - If the input is JSON, returns the parsed JSON value.
 pub enum HeaderQueryContent {
-    /// 提取到的头部 JSON 地址。
+    /// Extracted header JSON URL.
     ///
-    /// 可能为相对或绝对 URL，建议使用 `url::Url::join` 进行拼接。
+    /// May be relative or absolute; prefer using `url::Url::join` to resolve.
     Url(String),
-    /// 原始头部 JSON 内容。
+    /// Raw header JSON content.
     Json(Value),
 }
 
-/// 移除 JSON 文本中的非打印控制字符（保留 `\n`、`\r`、`\t`）。
+/// Remove non-printable control characters from JSON text (preserves `\n`, `\r`, `\t`).
 ///
-/// 目的：某些站点返回的 JSON 前后可能夹杂非法控制字符，
-/// 在解析前进行清洗以提高兼容性，同时不影响原始 raw 文本的保存。
+/// Rationale: some sites return JSON with illegal control characters surrounding it.
+/// Cleaning prior to parsing improves compatibility while not affecting preservation of raw text.
 pub(crate) fn replace_control_chars(s: &str) -> String {
     s.chars().filter(|ch: &char| !ch.is_control()).collect()
 }
 
-/// 将响应字符串解析为头部 JSON 或其 URL。
+/// Parse a response string into the header JSON or its URL.
 ///
-/// 解析策略：优先尝试按 JSON 解析；若失败则按 HTML 解析并提取 bmstable URL。
+/// Strategy: first attempt to parse as JSON; if it fails, parse as HTML and extract the bmstable URL.
 ///
-/// # 返回
+/// # Returns
 ///
-/// - `HeaderQueryContent::Json`：输入是 JSON；
-/// - `HeaderQueryContent::Url`：输入是 HTML。
+/// - `HeaderQueryContent::Json`: input is JSON;
+/// - `HeaderQueryContent::Url`: input is HTML.
 ///
-/// # 错误
+/// # Errors
 ///
-/// 当输入为 HTML 且未找到 bmstable 字段时返回错误。
+/// Returns an error when the input is HTML but the bmstable field cannot be found.
 pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQueryContent> {
-    // 先尝试按 JSON 解析（解析前移除非法控制字符）；失败则当作 HTML 提取 bmstable URL
+    // First try parsing as JSON (remove illegal control characters before parsing); if it fails, treat as HTML and extract the bmstable URL
     let cleaned = replace_control_chars(response_str);
     match serde_json::from_str::<Value>(&cleaned) {
         Ok(header_json) => Ok(HeaderQueryContent::Json(header_json)),
@@ -75,24 +75,24 @@ pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQue
     }
 }
 
-/// 从 HTML 页面内容中提取 bmstable 字段指向的 JSON 文件 URL。
+/// Extract the JSON file URL pointed to by the bmstable field from HTML page content.
 ///
-/// 该函数会扫描 `<meta>` 标签，寻找 `name="bmstable"` 的元素，并读取其 `content` 属性。
+/// Scans `<meta>` tags looking for elements with `name="bmstable"` and reads their `content` attribute.
 ///
-/// # 错误
+/// # Errors
 ///
-/// 当未找到目标标签或 `content` 为空时返回错误。
+/// Returns an error when the target tag is not found or `content` is empty.
 pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
     let document = Html::parse_document(html_content);
 
-    // 查找所有meta标签
+    // Find all meta tags
     let Ok(meta_selector) = Selector::parse("meta") else {
-        return Err(anyhow!("未找到meta标签"));
+        return Err(anyhow!("meta tag not found"));
     };
 
-    // 1) 优先从<meta name="bmstable" content="...">或<meta property="bmstable">提取
+    // 1) Prefer extracting from <meta name="bmstable" content="..."> or <meta property="bmstable">
     for element in document.select(&meta_selector) {
-        // name 或 property 为 bmstable 的标签
+        // Tags whose name or property is bmstable
         let is_bmstable = element
             .value()
             .attr("name")
@@ -109,7 +109,7 @@ pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
         }
     }
 
-    // 2) 其次尝试<link rel="bmstable" href="...json">
+    // 2) Next, try <link rel="bmstable" href="...json">
     if let Ok(link_selector) = Selector::parse("link") {
         for element in document.select(&link_selector) {
             let rel = element.value().attr("rel");
@@ -123,7 +123,7 @@ pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
         }
     }
 
-    // 3) 再尝试在常见标签属性中寻找 *header*.json 线索
+    // 3) Then try to find clues for *header*.json in common tag attributes
     //    - a[href], link[href], script[src], meta[content]
     let lower_contains_header_json = |s: &str| {
         let ls = s.to_ascii_lowercase();
@@ -172,25 +172,25 @@ pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
         }
     }
 
-    // 4) 最后进行原始文本的极简启发式搜索：匹配包含"header"且以 .json 结尾的子串
+    // 4) Finally, a minimal heuristic search on raw text: match substrings containing "header" and ending with .json
     if let Some((start, end)) = find_header_json_in_text(html_content) {
         let candidate = &html_content[start..end];
         return Ok(candidate.to_string());
     }
 
-    Err(anyhow!("未找到bmstable字段或header JSON线索"))
+    Err(anyhow!("bmstable field or header JSON hint not found"))
 }
 
-/// 在原始文本中查找类似 "*header*.json" 的子串，返回起止下标（若找到）。
+/// Find a substring like "*header*.json" in raw text, returning start/end indices if found.
 fn find_header_json_in_text(s: &str) -> Option<(usize, usize)> {
     let lower = s.to_ascii_lowercase();
     let mut pos = 0;
     while let Some(idx) = lower[pos..].find("header") {
         let global_idx = pos + idx;
-        // 在 header 之后寻找 .json
+        // Look for .json after header
         if let Some(json_rel) = lower[global_idx..].find(".json") {
             let end = global_idx + json_rel + ".json".len();
-            // 试着往前找最近的引号或空白作为起点
+            // Try to find the nearest quote or whitespace before as the start
             let start = lower[..global_idx]
                 .rfind(|c: char| c == '"' || c == '\'' || c.is_whitespace())
                 .map(|i| i + 1)
@@ -199,7 +199,7 @@ fn find_header_json_in_text(s: &str) -> Option<(usize, usize)> {
                 return Some((start, end));
             }
         }
-        pos = global_idx + 6; // 跳过 "header"
+        pos = global_idx + 6; // skip "header"
     }
     None
 }

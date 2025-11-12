@@ -1,17 +1,17 @@
 #![cfg(feature = "scraper")]
-//! HTML 解析与 bmstable URL 提取的单元测试
+//! Unit tests for HTML parsing and bmstable URL extraction
 //!
-//! 验证从 `<meta name="bmstable">` 中读取 `content` 的逻辑，以及相对地址的拼接。
+//! Verifies reading the `content` from `<meta name="bmstable">` and joining relative URLs.
 
 use bms_table::fetch::extract_bmstable_url;
 use bms_table::fetch::{HeaderQueryContent, get_web_header_json_value};
 use url::Url;
 
-// HTML 解析与 URL 相关测试
+// Tests for HTML parsing and URL behavior
 
 #[test]
 fn test_parser_creation() {
-    // 测试HTML内容中提取bmstable URL
+    // Test extracting bmstable URL from HTML content
     let html_content = r#"
     <!DOCTYPE html>
     <html>

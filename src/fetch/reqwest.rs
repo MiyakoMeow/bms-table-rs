@@ -1,12 +1,12 @@
-//! 基于 `reqwest` 的网络获取模块
+//! Network fetching module based on `reqwest`
 //!
-//! 提供一站式从网页或头部 JSON 源拉取并解析 BMS 难度表的能力：
-//! - 获取网页并从 HTML 提取 bmstable 头部地址（如有）；
-//! - 下载并解析头部 JSON；
-//! - 根据头部中的 `data_url` 下载谱面数据并解析；
-//! - 返回包含表头与谱面集合的 `BmsTable`。
+//! Provides an all-in-one ability to fetch and parse BMS difficulty tables from a web page or a header JSON source:
+//! - Fetch the page and extract the bmstable header URL from HTML (if present);
+//! - Download and parse the header JSON;
+//! - Download and parse chart data according to `data_url` in the header;
+//! - Return a `BmsTable` containing the header and the chart set.
 //!
-//! # 示例
+//! # Example
 //!
 //! ```rust,no_run
 //! # #[tokio::main]
@@ -29,21 +29,21 @@ use url::Url;
 
 use crate::{BmsTable, BmsTableInfo, BmsTableRaw, fetch::replace_control_chars};
 
-/// 从网页或头部 JSON 源拉取并解析完整的 BMS 难度表。
+/// Fetch and parse a complete BMS difficulty table from a web page or a header JSON source.
 ///
-/// # 参数
+/// # Parameters
 ///
-/// - `web_url`：网页地址或直接指向头部 JSON 的地址。
+/// - `web_url`: page URL or an URL pointing directly to the header JSON.
 ///
-/// # 返回
+/// # Returns
 ///
-/// 解析后的 [`crate::BmsTable`]，包含表头与谱面数据。
+/// Parsed [`crate::BmsTable`], containing header and chart data.
 ///
-/// # 错误
+/// # Errors
 ///
-/// - 网络请求失败（连接失败、超时等）
-/// - 响应内容无法解析为 HTML/JSON 或结构不符合预期
-/// - 头部 JSON 未包含 `data_url` 字段或其类型不正确
+/// - Network request failures (connection failure, timeout, etc.)
+/// - Response content cannot be parsed as HTML/JSON or structure is unexpected
+/// - Header JSON does not contain `data_url` or has the wrong type
 pub async fn fetch_table_full(
     client: &reqwest::Client,
     web_url: &str,
@@ -98,10 +98,10 @@ pub async fn fetch_table_full(
         .text()
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    // 在解析前移除非法控制字符，但保持原始 data_raw 不变
+    // Remove illegal control characters before parsing while keeping the original data_raw unchanged
     let data_cleaned = replace_control_chars(&data_response);
     let data_json: Value = serde_json::from_str(&data_cleaned)?;
-    // 直接使用库内反序列化生成 BmsTable
+    // Build BmsTable via the crate's deserialization
     let header: crate::BmsTableHeader = serde_json::from_value(header_json)
         .map_err(|e| anyhow!("When parsing header json: {e}"))?;
     let data: crate::BmsTableData =
@@ -117,18 +117,18 @@ pub async fn fetch_table_full(
     ))
 }
 
-/// 从网页或头部 JSON 源拉取并解析完整的 BMS 难度表。
+/// Fetch and parse a complete BMS difficulty table.
 ///
-/// 参考 [`fetch_table_full`]。
+/// See [`fetch_table_full`].
 pub async fn fetch_table(client: &reqwest::Client, web_url: &str) -> Result<BmsTable> {
     let (table, _raw) = fetch_table_full(client, web_url).await?;
     Ok(table)
 }
 
-/// 获取 BMS 难度表列表。
+/// Fetch a list of BMS difficulty tables.
 ///
-/// 从提供的 `web_url` 下载 JSON 数组并解析为 [`crate::BmsTableInfo`] 列表。
-/// 仅要求每个元素包含 `name`、`symbol` 与 `url`（字符串），其他字段将被收集到 `extra` 中。
+/// Downloads a JSON array from the provided `web_url` and parses it into a list of [`crate::BmsTableInfo`].
+/// Each item only requires `name`, `symbol`, and `url` (string); all other fields are collected into `extra`.
 pub async fn fetch_table_list(
     client: &reqwest::Client,
     web_url: &str,
@@ -137,9 +137,9 @@ pub async fn fetch_table_list(
     Ok(out)
 }
 
-/// 获取 BMS 难度表列表及其原始 JSON 字符串。
+/// Fetch a list of BMS difficulty tables along with the raw JSON string.
 ///
-/// 返回解析后的列表项数组与响应的原始 JSON 文本，便于记录或调试。
+/// Returns the parsed array of list entries and the raw JSON response text for recording or debugging.
 pub async fn fetch_table_list_full(
     client: &reqwest::Client,
     web_url: &str,
@@ -154,7 +154,7 @@ pub async fn fetch_table_list_full(
         .await
         .map_err(|e| anyhow!("When parsing table list response: {e}"))?;
 
-    // 在解析前移除非法控制字符，但保持原始响应文本不变
+    // Remove illegal control characters before parsing while keeping the original response text unchanged
     let cleaned = replace_control_chars(&response_text);
     let value: Value = serde_json::from_str(&cleaned)?;
     let arr = value
@@ -205,16 +205,16 @@ pub async fn fetch_table_list_full(
     Ok((out, response_text))
 }
 
-/// 创建一个规则宽松、兼容性更强的 HTTP 客户端。
+/// Create a more lenient and compatible HTTP client.
 ///
-/// - 设置浏览器 UA；
-/// - 配置超时与重定向；
-/// - 接受无效证书（用于少数不规范站点）；
-/// - 接受无效主机名（用于少数不规范站点）；
+/// - Set a browser-like UA;
+/// - Configure timeouts and redirects;
+/// - Accept invalid certificates (for a few non-compliant sites);
+/// - Accept invalid hostnames (for a few non-compliant sites);
 ///
-/// 注意：生产环境应审慎使用 `danger_accept_invalid_certs`。
+/// Note: use `danger_accept_invalid_certs` with caution in production.
 pub fn make_lenient_client() -> Result<reqwest::Client> {
-    // 默认请求头更贴近真实浏览器行为
+    // Default headers emulate real browser behavior more closely
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("accept"),
@@ -240,11 +240,11 @@ pub fn make_lenient_client() -> Result<reqwest::Client> {
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36 bms-table-rs")
         .timeout(Duration::from_secs(60))
         .redirect(reqwest::redirect::Policy::limited(100))
-        // 使重定向时自动附带 Referer，更接近浏览器行为
+        // Automatically include Referer on redirects, closer to browser behavior
         .referer(true)
-        // 启用 Cookie 存储，更贴近真实用户会话
+        // Enable cookie store, closer to real user sessions
         .cookie_store(true)
-        // 为兼容少数不规范站点保留宽松的 TLS 设置
+        // Keep lenient TLS settings for compatibility with some non-compliant sites
         .danger_accept_invalid_certs(true)
         .danger_accept_invalid_hostnames(true)
         .build()

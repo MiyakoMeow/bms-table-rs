@@ -1,52 +1,52 @@
-# BMS 难度表数据获取与解析库
+# BMS Difficulty Table Fetching and Parsing Library
 
 [<img alt="github" src="https://img.shields.io/badge/github-MiyakoMeow/bms_table_rs-8da0cb?logo=github" height="20">](https://github.com/MiyakoMeow/bms-table-rs)
 [<img alt="crates.io" src="https://img.shields.io/crates/v/bms-table.svg?logo=rust" height="20">](https://crates.io/crates/bms-table)
 [<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-bms_table-66c2a5?logo=docs.rs" height="20">](https://docs.rs/bms-table)
 [<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/MiyakoMeow/bms-table-rs/rust.yml?branch=main" height="20">](https://github.com/MiyakoMeow/bms-table-rs/actions?query=branch%3main)
 
-使用 Rust 实现的 BMS 难度表获取与解析库。支持从网页或头部 JSON 构建完整数据结构，覆盖表头、课程、奖杯与谱面条目，并提供难度表列表获取能力。
+A Rust library to fetch and parse BMS difficulty tables. It can build a complete data structure from a web page or a header JSON, covering the header, courses, trophies and chart items, and it provides APIs to fetch lists of tables.
 
-## 功能特性
+## Features
 
-- 从 HTML `<meta name="bmstable">` 提取头部 JSON 地址（启用 `scraper`）。
-- 解析表头 JSON 为 `BmsTableHeader`，未识别字段保留到 `extra`。
-- 解析谱面数据为 `BmsTableData`，兼容纯数组与 `{ charts: [...] }` 两种格式。
-- 将课程中的 `md5`/`sha256` 列表自动转换为 `ChartItem`，缺失 `level` 时补为 "0"。
-- 一站式网络获取 API（启用 `reqwest`，隐式启用 `scraper`）。
-- 获取难度表列表。
+- Extract the header JSON URL from HTML `<meta name="bmstable">` (requires `scraper`).
+- Parse the header JSON into `BmsTableHeader`; unrecognized fields are preserved in `extra`.
+- Parse chart data into `BmsTableData`, supporting either a plain array or `{ charts: [...] }` wrapper.
+- Automatically convert `md5`/`sha256` lists in courses to `ChartItem`; when `level` is missing, fill with "0".
+- One-stop network fetching APIs (enable `reqwest`, which implicitly enables `scraper`).
+- Fetch a list of difficulty tables.
 
-## 特性开关
+## Feature Flags
 
-- `serde`：类型的序列化/反序列化支持（默认启用）。
-- `scraper`：HTML 解析与 bmstable 头部地址提取（默认启用；`reqwest` 隐式启用）。
-- `reqwest`：网络获取实现（默认启用；需要 `tokio` 运行时）。
+- `serde`: serialization/deserialization support (enabled by default).
+- `scraper`: HTML parsing and bmstable header URL extraction (enabled by default; implicitly enabled by `reqwest`).
+- `reqwest`: network fetching implementation (enabled by default; requires the `tokio` runtime).
 
-## API 概览
+## API Overview
 
-- `BmsTable`：顶层数据结构，包含 `header` 与 `data`。
-- `BmsTableHeader`：表头元数据；未识别字段保留到 `extra`。
-- `BmsTableData`：谱面数据数组或 `{ charts }` 透明包装。
-- `CourseInfo`：课程信息，支持 `md5`/`sha256` 列表自动转换为谱面。
-- `ChartItem`：谱面条目；空字符串在反序列化时自动转换为 `None`。
-- `Trophy`：奖杯要求（最大 miss 率、最低得分率）。
-- `fetch::reqwest::fetch_table(url)`：从网页或头部 JSON 源拉取并解析完整表。
-- `fetch::reqwest::fetch_table_full(url)`：同时返回原始头部与数据 JSON 文本。
-- `fetch::reqwest::fetch_table_list(url)`：获取难度表列表。
-- `fetch::reqwest::fetch_table_list_full(url)`：返回列表项与原始 JSON 文本。
-- `fetch::get_web_header_json_value(str)`：将响应字符串解析为头部 JSON 或其 URL（`HeaderQueryContent`）。
-- `fetch::extract_bmstable_url(html)`：从 HTML 中提取 bmstable 头部地址。
+- `BmsTable`: top-level data structure containing `header` and `data`.
+- `BmsTableHeader`: header metadata; unrecognized fields are preserved in `extra`.
+- `BmsTableData`: chart data as an array or a transparent `{ charts }` wrapper.
+- `CourseInfo`: course information; supports automatically converting `md5`/`sha256` lists to chart items.
+- `ChartItem`: a chart item; empty strings are deserialized as `None`.
+- `Trophy`: trophy requirements (max miss rate, minimum score rate).
+- `fetch::reqwest::fetch_table(url)`: fetch and parse a complete table from a web page or a header JSON source.
+- `fetch::reqwest::fetch_table_full(url)`: return both the parsed table and the original header/data JSON texts.
+- `fetch::reqwest::fetch_table_list(url)`: fetch a list of difficulty tables.
+- `fetch::reqwest::fetch_table_list_full(url)`: return the list items along with the original JSON text.
+- `fetch::get_web_header_json_value(str)`: parse a response string into header JSON or its URL (`HeaderQueryContent`).
+- `fetch::extract_bmstable_url(html)`: extract the bmstable header URL from HTML.
 
-## 示例程序
+## Examples
 
-- `examples/single_fetch_index.rs`：单次抓取难度表列表并打印前若干条目。
-- `examples/multi_fetch.rs`：并发抓取多个难度表并输出进度与结果。
+- `examples/single_fetch_index.rs`: fetch the table list once and print the first few items.
+- `examples/multi_fetch.rs`: concurrently fetch multiple tables and print progress and results.
 
-## 文档与链接
+## Docs & Links
 
-- `docs.rs`：https://docs.rs/bms-table
-- 仓库：https://github.com/MiyakoMeow/bms-table-rs
+- `docs.rs`: https://docs.rs/bms-table
+- Repository: https://github.com/MiyakoMeow/bms-table-rs
 
-## 许可
+## License
 
-本项目基于 Apache-2.0 许可证开源。
+Licensed under the Apache-2.0 license.
