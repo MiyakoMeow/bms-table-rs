@@ -38,13 +38,13 @@
 //!
 //! # Offline usage (parse JSON directly)
 //!
-//! ```rust,no_run
+//! ```rust
 //! # #[cfg(feature = "serde")]
 //! # fn main() -> anyhow::Result<()> {
 //! use bms_table::{BmsTable, BmsTableHeader, BmsTableData};
 //!
 //! let header_json = r#"{ "name": "Test", "symbol": "t", "data_url": "charts.json", "course": [], "level_order": [] }"#;
-//! let data_json = r#"{ "charts": [] }"#;
+//! let data_json = r#"[]"#;
 //! let header: BmsTableHeader = serde_json::from_str(header_json)?;
 //! let data: BmsTableData = serde_json::from_str(data_json)?;
 //! let _table = BmsTable { header, data };
