@@ -26,7 +26,7 @@
 
 pub mod reqwest;
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use scraper::{Html, Selector};
 use serde::de::DeserializeOwned;
 
@@ -71,8 +71,8 @@ pub fn get_web_header_json_value<T: DeserializeOwned>(
     match serde_json::from_str::<T>(&cleaned) {
         Ok(header_json) => Ok(HeaderQueryContent::Value(header_json)),
         Err(_) => {
-            let bmstable_url = extract_bmstable_url(response_str)
-                .map_err(|e| anyhow!("When extracting bmstable url: {e}"))?;
+            let bmstable_url =
+                extract_bmstable_url(response_str).context("When extracting bmstable url")?;
             Ok(HeaderQueryContent::Url(bmstable_url))
         }
     }

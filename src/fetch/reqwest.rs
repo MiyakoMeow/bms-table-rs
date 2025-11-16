@@ -20,7 +20,7 @@
 //! ```
 #![cfg(feature = "reqwest")]
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::de::DeserializeOwned;
 use std::time::Duration;
@@ -50,33 +50,33 @@ pub async fn fetch_table_full(
     client: &reqwest::Client,
     web_url: &str,
 ) -> Result<(BmsTable, BmsTableRaw)> {
-    let web_url = Url::parse(web_url).map_err(|e| anyhow!("When parsing web url: {e}"))?;
+    let web_url = Url::parse(web_url).context("When parsing web url")?;
     let web_response = client
         .get(web_url.clone())
         .send()
         .await
-        .map_err(|e| anyhow!("When fetching web: {e}"))?
+        .context("When fetching web")?
         .text()
         .await
-        .map_err(|e| anyhow!("When parsing web response: {e}"))?;
+        .context("When parsing web response")?;
     let (hq, web_used_raw) = header_query_with_fallback::<BmsTableHeader>(&web_response)
-        .map_err(|e| anyhow!("When parsing header query: {e}"))?;
+        .context("When parsing header query")?;
     let (header_url, header, header_raw) = match hq {
         HeaderQueryContent::Url(header_url_string) => {
             let header_url = web_url
                 .join(&header_url_string)
-                .map_err(|e| anyhow!("When joining header url: {e}"))?;
+                .context("When joining header url")?;
             let header_response = client
                 .get(header_url.clone())
                 .send()
                 .await
-                .map_err(|e| anyhow!("When fetching header: {e}"))?;
+                .context("When fetching header")?;
             let header_response_string = header_response
                 .text()
                 .await
-                .map_err(|e| anyhow!("When parsing header response: {e}"))?;
+                .context("When parsing header response")?;
             let (hq2, raw2) = header_query_with_fallback::<BmsTableHeader>(&header_response_string)
-                .map_err(|e| anyhow!("When parsing header query: {e}"))?;
+                .context("When parsing header query")?;
             let HeaderQueryContent::Value(v) = hq2 else {
                 return Err(anyhow!(
                     "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
@@ -88,17 +88,17 @@ pub async fn fetch_table_full(
     };
     let data_url = header_url
         .join(&header.data_url)
-        .map_err(|e| anyhow!("When joining data url: {e}"))?;
+        .context("When joining data url")?;
     let data_response = client
         .get(data_url.clone())
         .send()
         .await
-        .map_err(|e| anyhow!("When fetching web: {e}"))?
+        .context("When fetching web")?
         .text()
         .await
-        .map_err(|e| anyhow!("When parsing web response: {e}"))?;
+        .context("When parsing web response")?;
     let (data, data_raw_str) = parse_json_str_with_fallback::<BmsTableData>(&data_response)
-        .map_err(|e| anyhow!("When parsing data json: {e}"))?;
+        .context("When parsing data json")?;
     Ok((
         BmsTable { header, data },
         BmsTableRaw {
@@ -116,7 +116,7 @@ pub async fn fetch_table_full(
 pub async fn fetch_table(client: &reqwest::Client, web_url: &str) -> Result<BmsTable> {
     let (table, _raw) = fetch_table_full(client, web_url)
         .await
-        .map_err(|e| anyhow!("When fetching full table: {e}"))?;
+        .context("When fetching full table")?;
     Ok(table)
 }
 
@@ -130,7 +130,7 @@ pub async fn fetch_table_list(
 ) -> Result<Vec<BmsTableInfo>> {
     let (out, _raw) = fetch_table_list_full(client, web_url)
         .await
-        .map_err(|e| anyhow!("When fetching table list full: {e}"))?;
+        .context("When fetching table list full")?;
     Ok(out)
 }
 
@@ -141,17 +141,17 @@ pub async fn fetch_table_list_full(
     client: &reqwest::Client,
     web_url: &str,
 ) -> Result<(Vec<BmsTableInfo>, String)> {
-    let web_url = Url::parse(web_url).map_err(|e| anyhow!("When parsing table list url: {e}"))?;
+    let web_url = Url::parse(web_url).context("When parsing table list url")?;
     let response_text = client
         .get(web_url)
         .send()
         .await
-        .map_err(|e| anyhow!("When fetching table list: {e}"))?
+        .context("When fetching table list")?
         .text()
         .await
-        .map_err(|e| anyhow!("When parsing table list response: {e}"))?;
+        .context("When parsing table list response")?;
     let (list, raw_used) = parse_json_str_with_fallback::<BmsTableList>(&response_text)
-        .map_err(|e| anyhow!("When parsing table list json: {e}"))?;
+        .context("When parsing table list json")?;
     let out: Vec<BmsTableInfo> = list.listes;
     Ok((out, raw_used))
 }
@@ -199,7 +199,7 @@ pub fn make_lenient_client() -> Result<reqwest::Client> {
         .danger_accept_invalid_certs(true)
         .danger_accept_invalid_hostnames(true)
         .build()
-        .map_err(|e| anyhow!("When building client: {e}"))?;
+        .context("When building client")?;
     Ok(client)
 }
 
@@ -213,8 +213,7 @@ fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, St
         Ok(v) => Ok((v, raw.to_string())),
         Err(_) => {
             let cleaned = replace_control_chars(raw);
-            let v = serde_json::from_str::<T>(&cleaned)
-                .map_err(|e| anyhow!("When parsing cleaned json: {e}"))?;
+            let v = serde_json::from_str::<T>(&cleaned).context("When parsing cleaned json")?;
             Ok((v, cleaned))
         }
     }
@@ -233,7 +232,7 @@ fn header_query_with_fallback<T: DeserializeOwned>(
         Err(_) => {
             let cleaned = replace_control_chars(raw);
             let v = get_web_header_json_value::<T>(&cleaned)
-                .map_err(|e| anyhow!("When extracting header from cleaned text: {e}"))?;
+                .context("When extracting header from cleaned text")?;
             Ok((v, cleaned))
         }
     }
