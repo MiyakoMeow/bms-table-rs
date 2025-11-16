@@ -59,7 +59,7 @@ pub async fn fetch_table_full(
         .text()
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    let (hq, web_used_raw) = header_query_with_fallback::<serde_json::Value>(&web_response)?;
+    let (hq, web_used_raw) = header_query_with_fallback::<BmsTableHeader>(&web_response)?;
     let (header_url, header, header_raw) = match hq {
         HeaderQueryContent::Url(header_url_string) => {
             let header_url = web_url.join(&header_url_string)?;
@@ -73,23 +73,15 @@ pub async fn fetch_table_full(
                 .await
                 .map_err(|e| anyhow!("When parsing header response: {e}"))?;
             let (hq2, raw2) =
-                header_query_with_fallback::<serde_json::Value>(&header_response_string)?;
+                header_query_with_fallback::<BmsTableHeader>(&header_response_string)?;
             let HeaderQueryContent::Value(v) = hq2 else {
                 return Err(anyhow!(
                     "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
                 ));
             };
-            (
-                header_url,
-                serde_json::from_value::<BmsTableHeader>(v)?,
-                raw2,
-            )
+            (header_url, v, raw2)
         }
-        HeaderQueryContent::Value(value) => (
-            web_url,
-            serde_json::from_value::<BmsTableHeader>(value)?,
-            web_used_raw,
-        ),
+        HeaderQueryContent::Value(value) => (web_url, value, web_used_raw),
     };
     let data_url = header_url.join(&header.data_url)?;
     let data_response = client
