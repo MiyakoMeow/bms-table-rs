@@ -50,7 +50,7 @@ pub async fn fetch_table_full(
     client: &reqwest::Client,
     web_url: &str,
 ) -> Result<(BmsTable, BmsTableRaw)> {
-    let web_url = Url::parse(web_url)?;
+    let web_url = Url::parse(web_url).map_err(|e| anyhow!("When parsing web url: {e}"))?;
     let web_response = client
         .get(web_url.clone())
         .send()
@@ -59,10 +59,13 @@ pub async fn fetch_table_full(
         .text()
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    let (hq, web_used_raw) = header_query_with_fallback::<BmsTableHeader>(&web_response)?;
+    let (hq, web_used_raw) = header_query_with_fallback::<BmsTableHeader>(&web_response)
+        .map_err(|e| anyhow!("When parsing header query: {e}"))?;
     let (header_url, header, header_raw) = match hq {
         HeaderQueryContent::Url(header_url_string) => {
-            let header_url = web_url.join(&header_url_string)?;
+            let header_url = web_url
+                .join(&header_url_string)
+                .map_err(|e| anyhow!("When joining header url: {e}"))?;
             let header_response = client
                 .get(header_url.clone())
                 .send()
@@ -72,8 +75,8 @@ pub async fn fetch_table_full(
                 .text()
                 .await
                 .map_err(|e| anyhow!("When parsing header response: {e}"))?;
-            let (hq2, raw2) =
-                header_query_with_fallback::<BmsTableHeader>(&header_response_string)?;
+            let (hq2, raw2) = header_query_with_fallback::<BmsTableHeader>(&header_response_string)
+                .map_err(|e| anyhow!("When parsing header query: {e}"))?;
             let HeaderQueryContent::Value(v) = hq2 else {
                 return Err(anyhow!(
                     "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
@@ -83,7 +86,9 @@ pub async fn fetch_table_full(
         }
         HeaderQueryContent::Value(value) => (web_url, value, web_used_raw),
     };
-    let data_url = header_url.join(&header.data_url)?;
+    let data_url = header_url
+        .join(&header.data_url)
+        .map_err(|e| anyhow!("When joining data url: {e}"))?;
     let data_response = client
         .get(data_url.clone())
         .send()
@@ -109,7 +114,9 @@ pub async fn fetch_table_full(
 ///
 /// See [`fetch_table_full`].
 pub async fn fetch_table(client: &reqwest::Client, web_url: &str) -> Result<BmsTable> {
-    let (table, _raw) = fetch_table_full(client, web_url).await?;
+    let (table, _raw) = fetch_table_full(client, web_url)
+        .await
+        .map_err(|e| anyhow!("When fetching full table: {e}"))?;
     Ok(table)
 }
 
@@ -121,7 +128,9 @@ pub async fn fetch_table_list(
     client: &reqwest::Client,
     web_url: &str,
 ) -> Result<Vec<BmsTableInfo>> {
-    let (out, _raw) = fetch_table_list_full(client, web_url).await?;
+    let (out, _raw) = fetch_table_list_full(client, web_url)
+        .await
+        .map_err(|e| anyhow!("When fetching table list full: {e}"))?;
     Ok(out)
 }
 
@@ -132,7 +141,7 @@ pub async fn fetch_table_list_full(
     client: &reqwest::Client,
     web_url: &str,
 ) -> Result<(Vec<BmsTableInfo>, String)> {
-    let web_url = Url::parse(web_url)?;
+    let web_url = Url::parse(web_url).map_err(|e| anyhow!("When parsing table list url: {e}"))?;
     let response_text = client
         .get(web_url)
         .send()
@@ -204,7 +213,8 @@ fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, St
         Ok(v) => Ok((v, raw.to_string())),
         Err(_) => {
             let cleaned = replace_control_chars(raw);
-            let v = serde_json::from_str::<T>(&cleaned)?;
+            let v = serde_json::from_str::<T>(&cleaned)
+                .map_err(|e| anyhow!("When parsing cleaned json: {e}"))?;
             Ok((v, cleaned))
         }
     }
@@ -222,7 +232,8 @@ fn header_query_with_fallback<T: DeserializeOwned>(
         Ok(v) => Ok((v, raw.to_string())),
         Err(_) => {
             let cleaned = replace_control_chars(raw);
-            let v = get_web_header_json_value::<T>(&cleaned)?;
+            let v = get_web_header_json_value::<T>(&cleaned)
+                .map_err(|e| anyhow!("When extracting header from cleaned text: {e}"))?;
             Ok((v, cleaned))
         }
     }
