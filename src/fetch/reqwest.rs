@@ -60,7 +60,7 @@ pub async fn fetch_table_full(
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
     let (hq, web_used_raw) = header_query_with_fallback(&web_response)?;
-    let (header_url, header_json, mut header_raw) = match hq {
+    let (header_url, header, header_raw) = match hq {
         HeaderQueryContent::Url(header_url_string) => {
             let header_url = web_url.join(&header_url_string)?;
             let header_response = client
@@ -78,12 +78,18 @@ pub async fn fetch_table_full(
                     "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
                 ));
             };
-            (header_url, v, raw2)
+            (
+                header_url,
+                serde_json::from_value::<BmsTableHeader>(v)?,
+                raw2,
+            )
         }
-        HeaderQueryContent::Json(value) => (web_url, value, web_used_raw),
+        HeaderQueryContent::Json(value) => (
+            web_url,
+            serde_json::from_value::<BmsTableHeader>(value)?,
+            web_used_raw,
+        ),
     };
-    let (header, header_raw_new) = parse_header_from_value_with_fallback(header_json, &header_raw)?;
-    header_raw = header_raw_new;
     let data_url = header_url.join(&header.data_url)?;
     let data_response = client
         .get(data_url.clone())
@@ -223,32 +229,6 @@ fn header_query_with_fallback(raw: &str) -> Result<(HeaderQueryContent, String)>
             let cleaned = replace_control_chars(raw);
             let v = get_web_header_json_value(&cleaned)?;
             Ok((v, cleaned))
-        }
-    }
-}
-
-/// Deserialize `BmsTableHeader` from a JSON `Value` with a fallback.
-///
-/// If deserialization fails for the provided `value`, re-extracts JSON
-/// from the given `raw` string after removing illegal control characters
-/// and retries. Returns the parsed header and the raw string actually used.
-fn parse_header_from_value_with_fallback(
-    value: serde_json::Value,
-    raw: &str,
-) -> Result<(BmsTableHeader, String)> {
-    match serde_json::from_value::<BmsTableHeader>(value) {
-        Ok(h) => Ok((h, raw.to_string())),
-        Err(e_first) => {
-            let cleaned = replace_control_chars(raw);
-            if cleaned == raw {
-                return Err(anyhow!("When parsing header json: {e_first}"));
-            }
-            let HeaderQueryContent::Json(v) = get_web_header_json_value(&cleaned)? else {
-                return Err(anyhow!("When parsing header json: {e_first}"));
-            };
-            let h = serde_json::from_value::<BmsTableHeader>(v)
-                .map_err(|e| anyhow!("When parsing header json: {e}"))?;
-            Ok((h, cleaned))
         }
     }
 }
