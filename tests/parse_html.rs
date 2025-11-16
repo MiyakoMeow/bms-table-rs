@@ -61,8 +61,8 @@ fn test_url_parsing() {
 #[test]
 fn test_get_web_header_json_value_parses_json_with_control_chars() {
     let input = "\u{0000}{\"data_url\":\"charts.json\"}\u{000C}";
-    match get_web_header_json_value(input).unwrap() {
-        HeaderQueryContent::Json(v) => {
+    match get_web_header_json_value::<serde_json::Value>(input).unwrap() {
+        HeaderQueryContent::Value(v) => {
             assert_eq!(
                 v.get("data_url").and_then(|x| x.as_str()),
                 Some("charts.json")

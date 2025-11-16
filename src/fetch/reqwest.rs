@@ -59,7 +59,7 @@ pub async fn fetch_table_full(
         .text()
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    let (hq, web_used_raw) = header_query_with_fallback(&web_response)?;
+    let (hq, web_used_raw) = header_query_with_fallback::<serde_json::Value>(&web_response)?;
     let (header_url, header, header_raw) = match hq {
         HeaderQueryContent::Url(header_url_string) => {
             let header_url = web_url.join(&header_url_string)?;
@@ -72,8 +72,9 @@ pub async fn fetch_table_full(
                 .text()
                 .await
                 .map_err(|e| anyhow!("When parsing header response: {e}"))?;
-            let (hq2, raw2) = header_query_with_fallback(&header_response_string)?;
-            let HeaderQueryContent::Json(v) = hq2 else {
+            let (hq2, raw2) =
+                header_query_with_fallback::<serde_json::Value>(&header_response_string)?;
+            let HeaderQueryContent::Value(v) = hq2 else {
                 return Err(anyhow!(
                     "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
                 ));
@@ -84,7 +85,7 @@ pub async fn fetch_table_full(
                 raw2,
             )
         }
-        HeaderQueryContent::Json(value) => (
+        HeaderQueryContent::Value(value) => (
             web_url,
             serde_json::from_value::<BmsTableHeader>(value)?,
             web_used_raw,
@@ -222,12 +223,14 @@ fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, St
 /// Attempts `get_web_header_json_value(raw)` first; on failure, retries
 /// with a control-character-cleaned string. Returns the content and the
 /// raw string actually used for the successful extraction.
-fn header_query_with_fallback(raw: &str) -> Result<(HeaderQueryContent, String)> {
-    match get_web_header_json_value(raw) {
+fn header_query_with_fallback<T: DeserializeOwned>(
+    raw: &str,
+) -> Result<(HeaderQueryContent<T>, String)> {
+    match get_web_header_json_value::<T>(raw) {
         Ok(v) => Ok((v, raw.to_string())),
         Err(_) => {
             let cleaned = replace_control_chars(raw);
-            let v = get_web_header_json_value(&cleaned)?;
+            let v = get_web_header_json_value::<T>(&cleaned)?;
             Ok((v, cleaned))
         }
     }
