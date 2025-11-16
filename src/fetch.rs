@@ -17,7 +17,7 @@
 //!   <body></body>
 //! </html>
 //! "#;
-//! match get_web_header_json_value(html).unwrap() {
+//! match get_web_header_json_value::<serde_json::Value>(html).unwrap() {
 //!     HeaderQueryContent::Url(u) => assert_eq!(u, "header.json"),
 //!     _ => unreachable!(),
 //! }
@@ -26,21 +26,21 @@
 
 pub mod reqwest;
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use scraper::{Html, Selector};
-use serde_json::Value;
+use serde::de::DeserializeOwned;
 
 /// Return type of [`get_web_header_json_value`].
 ///
 /// - If the input is HTML, returns the URL extracted from `<meta name="bmstable">`;
-/// - If the input is JSON, returns the parsed JSON value.
-pub enum HeaderQueryContent {
+/// - If the input is JSON, returns the parsed value of type `T`.
+pub enum HeaderQueryContent<T> {
     /// Extracted header JSON URL.
     ///
     /// May be relative or absolute; prefer using `url::Url::join` to resolve.
     Url(String),
-    /// Raw header JSON content.
-    Json(Value),
+    /// Parsed header JSON content.
+    Value(T),
 }
 
 /// Remove non-printable control characters from JSON text (preserves `\n`, `\r`, `\t`).
@@ -63,13 +63,16 @@ pub(crate) fn replace_control_chars(s: &str) -> String {
 /// # Errors
 ///
 /// Returns an error when the input is HTML but the bmstable field cannot be found.
-pub fn get_web_header_json_value(response_str: &str) -> anyhow::Result<HeaderQueryContent> {
+pub fn get_web_header_json_value<T: DeserializeOwned>(
+    response_str: &str,
+) -> anyhow::Result<HeaderQueryContent<T>> {
     // First try parsing as JSON (remove illegal control characters before parsing); if it fails, treat as HTML and extract the bmstable URL
     let cleaned = replace_control_chars(response_str);
-    match serde_json::from_str::<Value>(&cleaned) {
-        Ok(header_json) => Ok(HeaderQueryContent::Json(header_json)),
+    match serde_json::from_str::<T>(&cleaned) {
+        Ok(header_json) => Ok(HeaderQueryContent::Value(header_json)),
         Err(_) => {
-            let bmstable_url = extract_bmstable_url(response_str)?;
+            let bmstable_url =
+                extract_bmstable_url(response_str).context("When extracting bmstable url")?;
             Ok(HeaderQueryContent::Url(bmstable_url))
         }
     }

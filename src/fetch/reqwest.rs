@@ -20,8 +20,9 @@
 //! ```
 #![cfg(feature = "reqwest")]
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use serde::de::DeserializeOwned;
 use std::time::Duration;
 use url::Url;
 
@@ -49,60 +50,62 @@ pub async fn fetch_table_full(
     client: &reqwest::Client,
     web_url: &str,
 ) -> Result<(BmsTable, BmsTableRaw)> {
-    let web_url = Url::parse(web_url)?;
+    let web_url = Url::parse(web_url).context("When parsing web url")?;
     let web_response = client
         .get(web_url.clone())
         .send()
         .await
-        .map_err(|e| anyhow!("When fetching web: {e}"))?
+        .context("When fetching web")?
         .text()
         .await
-        .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    let (header_url, header_json, header_raw) = match get_web_header_json_value(&web_response)? {
+        .context("When parsing web response")?;
+    let (hq, web_used_raw) = header_query_with_fallback::<BmsTableHeader>(&web_response)
+        .context("When parsing header query")?;
+    let (header_url, header, header_raw) = match hq {
         HeaderQueryContent::Url(header_url_string) => {
-            let header_url = web_url.join(&header_url_string)?;
+            let header_url = web_url
+                .join(&header_url_string)
+                .context("When joining header url")?;
             let header_response = client
                 .get(header_url.clone())
                 .send()
                 .await
-                .map_err(|e| anyhow!("When fetching header: {e}"))?;
+                .context("When fetching header")?;
             let header_response_string = header_response
                 .text()
                 .await
-                .map_err(|e| anyhow!("When parsing header response: {e}"))?;
-            let HeaderQueryContent::Json(header_json) =
-                get_web_header_json_value(&header_response_string)?
-            else {
+                .context("When parsing header response")?;
+            let (hq2, raw2) = header_query_with_fallback::<BmsTableHeader>(&header_response_string)
+                .context("When parsing header query")?;
+            let HeaderQueryContent::Value(v) = hq2 else {
                 return Err(anyhow!(
                     "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
                 ));
             };
-            (header_url, header_json, header_response_string)
+            (header_url, v, raw2)
         }
-        HeaderQueryContent::Json(value) => (web_url, value, web_response),
+        HeaderQueryContent::Value(value) => (web_url, value, web_used_raw),
     };
-    let header: BmsTableHeader = serde_json::from_value(header_json)
-        .map_err(|e| anyhow!("When parsing header json: {e}"))?;
-    let data_url = header_url.join(&header.data_url)?;
+    let data_url = header_url
+        .join(&header.data_url)
+        .context("When joining data url")?;
     let data_response = client
         .get(data_url.clone())
         .send()
         .await
-        .map_err(|e| anyhow!("When fetching web: {e}"))?
+        .context("When fetching web")?
         .text()
         .await
-        .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    // Remove illegal control characters before parsing while keeping the original data_raw unchanged
-    let data_cleaned = replace_control_chars(&data_response);
-    let data: BmsTableData =
-        serde_json::from_str(&data_cleaned).map_err(|e| anyhow!("When parsing data json: {e}"))?;
+        .context("When parsing web response")?;
+    let (data, data_raw_str) = parse_json_str_with_fallback::<BmsTableData>(&data_response)
+        .context("When parsing data json")?;
     Ok((
         BmsTable { header, data },
         BmsTableRaw {
             header_json_url: header_url,
             header_raw,
             data_json_url: data_url,
-            data_raw: data_response,
+            data_raw: data_raw_str,
         },
     ))
 }
@@ -111,7 +114,9 @@ pub async fn fetch_table_full(
 ///
 /// See [`fetch_table_full`].
 pub async fn fetch_table(client: &reqwest::Client, web_url: &str) -> Result<BmsTable> {
-    let (table, _raw) = fetch_table_full(client, web_url).await?;
+    let (table, _raw) = fetch_table_full(client, web_url)
+        .await
+        .context("When fetching full table")?;
     Ok(table)
 }
 
@@ -123,7 +128,9 @@ pub async fn fetch_table_list(
     client: &reqwest::Client,
     web_url: &str,
 ) -> Result<Vec<BmsTableInfo>> {
-    let (out, _raw) = fetch_table_list_full(client, web_url).await?;
+    let (out, _raw) = fetch_table_list_full(client, web_url)
+        .await
+        .context("When fetching table list full")?;
     Ok(out)
 }
 
@@ -134,22 +141,19 @@ pub async fn fetch_table_list_full(
     client: &reqwest::Client,
     web_url: &str,
 ) -> Result<(Vec<BmsTableInfo>, String)> {
-    let web_url = Url::parse(web_url)?;
+    let web_url = Url::parse(web_url).context("When parsing table list url")?;
     let response_text = client
         .get(web_url)
         .send()
         .await
-        .map_err(|e| anyhow!("When fetching table list: {e}"))?
+        .context("When fetching table list")?
         .text()
         .await
-        .map_err(|e| anyhow!("When parsing table list response: {e}"))?;
-
-    // Remove illegal control characters before parsing while keeping the original response text unchanged
-    let cleaned = replace_control_chars(&response_text);
-    let out: Vec<BmsTableInfo> = serde_json::from_str::<BmsTableList>(&cleaned)
-        .map(|list| list.listes)
-        .map_err(|e| anyhow!("When parsing table list json: {e}"))?;
-    Ok((out, response_text))
+        .context("When parsing table list response")?;
+    let (list, raw_used) = parse_json_str_with_fallback::<BmsTableList>(&response_text)
+        .context("When parsing table list json")?;
+    let out: Vec<BmsTableInfo> = list.listes;
+    Ok((out, raw_used))
 }
 
 /// Create a more lenient and compatible HTTP client.
@@ -195,6 +199,41 @@ pub fn make_lenient_client() -> Result<reqwest::Client> {
         .danger_accept_invalid_certs(true)
         .danger_accept_invalid_hostnames(true)
         .build()
-        .map_err(|e| anyhow!("When building client: {e}"))?;
+        .context("When building client")?;
     Ok(client)
+}
+
+/// Parse JSON from a raw string with a fallback.
+///
+/// Tries to deserialize from the original `raw` first; if it fails,
+/// removes illegal control characters and retries. Returns the parsed
+/// value and the raw string actually used for the successful parse.
+fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, String)> {
+    match serde_json::from_str::<T>(raw) {
+        Ok(v) => Ok((v, raw.to_string())),
+        Err(_) => {
+            let cleaned = replace_control_chars(raw);
+            let v = serde_json::from_str::<T>(&cleaned).context("When parsing cleaned json")?;
+            Ok((v, cleaned))
+        }
+    }
+}
+
+/// Extract header query content from a page string with a fallback.
+///
+/// Attempts `get_web_header_json_value(raw)` first; on failure, retries
+/// with a control-character-cleaned string. Returns the content and the
+/// raw string actually used for the successful extraction.
+fn header_query_with_fallback<T: DeserializeOwned>(
+    raw: &str,
+) -> Result<(HeaderQueryContent<T>, String)> {
+    match get_web_header_json_value::<T>(raw) {
+        Ok(v) => Ok((v, raw.to_string())),
+        Err(_) => {
+            let cleaned = replace_control_chars(raw);
+            let v = get_web_header_json_value::<T>(&cleaned)
+                .context("When extracting header from cleaned text")?;
+            Ok((v, cleaned))
+        }
+    }
 }
