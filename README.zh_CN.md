@@ -39,7 +39,7 @@
 
 ## 示例程序
 
-- `examples/single_fetch_index.rs`：单次抓取难度表列表并打印前若干条目。
+- `examples/single_fetch_list.rs`：单次抓取难度表列表并打印前若干条目。
 - `examples/multi_fetch.rs`：并发抓取多个难度表并输出进度与结果。
 
 ## 文档与链接

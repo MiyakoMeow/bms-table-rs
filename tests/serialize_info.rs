@@ -45,15 +45,15 @@ fn test_bms_table_list_serialize_array() {
             m
         },
     };
-    let index = BmsTableList {
-        indexes: vec![item1, item2],
+    let list = BmsTableList {
+        listes: vec![item1, item2],
     };
 
-    let value = serde_json::to_value(&index).unwrap();
+    let value = serde_json::to_value(&list).unwrap();
     assert!(value.is_array());
 
     let parsed: BmsTableList = serde_json::from_value(value).unwrap();
-    assert_eq!(parsed.indexes.len(), 2);
-    assert_eq!(parsed.indexes[0].name, ".WAS難易度表");
-    assert_eq!(parsed.indexes[1].symbol, "[F]");
+    assert_eq!(parsed.listes.len(), 2);
+    assert_eq!(parsed.listes[0].name, ".WAS難易度表");
+    assert_eq!(parsed.listes[1].symbol, "[F]");
 }
