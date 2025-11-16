@@ -22,6 +22,7 @@
 
 use anyhow::{Result, anyhow};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use serde::de::DeserializeOwned;
 use std::time::Duration;
 use url::Url;
 
@@ -58,7 +59,8 @@ pub async fn fetch_table_full(
         .text()
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    let (header_url, header_json, header_raw) = match get_web_header_json_value(&web_response)? {
+    let (hq, web_used_raw) = header_query_with_fallback(&web_response)?;
+    let (header_url, header_json, mut header_raw) = match hq {
         HeaderQueryContent::Url(header_url_string) => {
             let header_url = web_url.join(&header_url_string)?;
             let header_response = client
@@ -70,19 +72,18 @@ pub async fn fetch_table_full(
                 .text()
                 .await
                 .map_err(|e| anyhow!("When parsing header response: {e}"))?;
-            let HeaderQueryContent::Json(header_json) =
-                get_web_header_json_value(&header_response_string)?
-            else {
+            let (hq2, raw2) = header_query_with_fallback(&header_response_string)?;
+            let HeaderQueryContent::Json(v) = hq2 else {
                 return Err(anyhow!(
                     "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
                 ));
             };
-            (header_url, header_json, header_response_string)
+            (header_url, v, raw2)
         }
-        HeaderQueryContent::Json(value) => (web_url, value, web_response),
+        HeaderQueryContent::Json(value) => (web_url, value, web_used_raw),
     };
-    let header: BmsTableHeader = serde_json::from_value(header_json)
-        .map_err(|e| anyhow!("When parsing header json: {e}"))?;
+    let (header, header_raw_new) = parse_header_from_value_with_fallback(header_json, &header_raw)?;
+    header_raw = header_raw_new;
     let data_url = header_url.join(&header.data_url)?;
     let data_response = client
         .get(data_url.clone())
@@ -92,17 +93,15 @@ pub async fn fetch_table_full(
         .text()
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    // Remove illegal control characters before parsing while keeping the original data_raw unchanged
-    let data_cleaned = replace_control_chars(&data_response);
-    let data: BmsTableData =
-        serde_json::from_str(&data_cleaned).map_err(|e| anyhow!("When parsing data json: {e}"))?;
+    let (data, data_raw_str) = parse_json_str_with_fallback::<BmsTableData>(&data_response)
+        .map_err(|e| anyhow!("When parsing data json: {e}"))?;
     Ok((
         BmsTable { header, data },
         BmsTableRaw {
             header_json_url: header_url,
             header_raw,
             data_json_url: data_url,
-            data_raw: data_response,
+            data_raw: data_raw_str,
         },
     ))
 }
@@ -143,13 +142,10 @@ pub async fn fetch_table_list_full(
         .text()
         .await
         .map_err(|e| anyhow!("When parsing table list response: {e}"))?;
-
-    // Remove illegal control characters before parsing while keeping the original response text unchanged
-    let cleaned = replace_control_chars(&response_text);
-    let out: Vec<BmsTableInfo> = serde_json::from_str::<BmsTableList>(&cleaned)
-        .map(|list| list.listes)
+    let (list, raw_used) = parse_json_str_with_fallback::<BmsTableList>(&response_text)
         .map_err(|e| anyhow!("When parsing table list json: {e}"))?;
-    Ok((out, response_text))
+    let out: Vec<BmsTableInfo> = list.listes;
+    Ok((out, raw_used))
 }
 
 /// Create a more lenient and compatible HTTP client.
@@ -197,4 +193,62 @@ pub fn make_lenient_client() -> Result<reqwest::Client> {
         .build()
         .map_err(|e| anyhow!("When building client: {e}"))?;
     Ok(client)
+}
+
+/// Parse JSON from a raw string with a fallback.
+///
+/// Tries to deserialize from the original `raw` first; if it fails,
+/// removes illegal control characters and retries. Returns the parsed
+/// value and the raw string actually used for the successful parse.
+fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, String)> {
+    match serde_json::from_str::<T>(raw) {
+        Ok(v) => Ok((v, raw.to_string())),
+        Err(_) => {
+            let cleaned = replace_control_chars(raw);
+            let v = serde_json::from_str::<T>(&cleaned)?;
+            Ok((v, cleaned))
+        }
+    }
+}
+
+/// Extract header query content from a page string with a fallback.
+///
+/// Attempts `get_web_header_json_value(raw)` first; on failure, retries
+/// with a control-character-cleaned string. Returns the content and the
+/// raw string actually used for the successful extraction.
+fn header_query_with_fallback(raw: &str) -> Result<(HeaderQueryContent, String)> {
+    match get_web_header_json_value(raw) {
+        Ok(v) => Ok((v, raw.to_string())),
+        Err(_) => {
+            let cleaned = replace_control_chars(raw);
+            let v = get_web_header_json_value(&cleaned)?;
+            Ok((v, cleaned))
+        }
+    }
+}
+
+/// Deserialize `BmsTableHeader` from a JSON `Value` with a fallback.
+///
+/// If deserialization fails for the provided `value`, re-extracts JSON
+/// from the given `raw` string after removing illegal control characters
+/// and retries. Returns the parsed header and the raw string actually used.
+fn parse_header_from_value_with_fallback(
+    value: serde_json::Value,
+    raw: &str,
+) -> Result<(BmsTableHeader, String)> {
+    match serde_json::from_value::<BmsTableHeader>(value) {
+        Ok(h) => Ok((h, raw.to_string())),
+        Err(e_first) => {
+            let cleaned = replace_control_chars(raw);
+            if cleaned == raw {
+                return Err(anyhow!("When parsing header json: {e_first}"));
+            }
+            let HeaderQueryContent::Json(v) = get_web_header_json_value(&cleaned)? else {
+                return Err(anyhow!("When parsing header json: {e_first}"));
+            };
+            let h = serde_json::from_value::<BmsTableHeader>(v)
+                .map_err(|e| anyhow!("When parsing header json: {e}"))?;
+            Ok((h, cleaned))
+        }
+    }
 }
