@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.11.0](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.10.4...v0.11.0) (2025-11-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* add fallback ([#23](https://github.com/MiyakoMeow/bms-table-rs/issues/23))
+* index -> list ([#22](https://github.com/MiyakoMeow/bms-table-rs/issues/22))
+
+### rename
+
+* index -&gt; list ([#22](https://github.com/MiyakoMeow/bms-table-rs/issues/22)) ([e106dfa](https://github.com/MiyakoMeow/bms-table-rs/commit/e106dfa31fb86c816bc865fb86ad536c3641032f))
+
+
+### Features
+
+* add fallback ([#23](https://github.com/MiyakoMeow/bms-table-rs/issues/23)) ([8e9eac4](https://github.com/MiyakoMeow/bms-table-rs/commit/8e9eac4c3716a372e91fac08870626e120f6a7f1))
+* **reqwest:** use serde when possible ([#20](https://github.com/MiyakoMeow/bms-table-rs/issues/20)) ([252d426](https://github.com/MiyakoMeow/bms-table-rs/commit/252d4268e6fe0ab8df027d7bf1c011ef905036d2))
+
 ## [0.10.4](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.10.3...v0.10.4) (2025-11-12)
 
 
