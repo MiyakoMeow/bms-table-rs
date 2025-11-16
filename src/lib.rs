@@ -62,8 +62,8 @@
 //! # async fn main() -> anyhow::Result<()> {
 //! use bms_table::fetch::reqwest::{fetch_table_list, make_lenient_client};
 //! let client = make_lenient_client()?;
-//! let indexes = fetch_table_list(&client, "https://example.com/table_index.json").await?;
-//! assert!(!indexes.is_empty());
+//! let listes = fetch_table_list(&client, "https://example.com/table_list.json").await?;
+//! assert!(!listes.is_empty());
 //! # Ok(())
 //! # }
 //! # #[cfg(not(feature = "reqwest"))]
@@ -252,5 +252,5 @@ pub struct BmsTableInfo {
 #[cfg_attr(feature = "serde", serde(transparent))]
 pub struct BmsTableList {
     /// List of entries
-    pub indexes: Vec<BmsTableInfo>,
+    pub listes: Vec<BmsTableInfo>,
 }

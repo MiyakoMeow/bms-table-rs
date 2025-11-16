@@ -39,7 +39,7 @@ A Rust library to fetch and parse BMS difficulty tables. It can build a complete
 
 ## Examples
 
-- `examples/single_fetch_index.rs`: fetch the table list once and print the first few items.
+- `examples/single_fetch_list.rs`: fetch the table list once and print the first few items.
 - `examples/multi_fetch.rs`: concurrently fetch multiple tables and print progress and results.
 
 ## Docs & Links
