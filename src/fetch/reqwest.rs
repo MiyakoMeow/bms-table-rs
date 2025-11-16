@@ -19,15 +19,16 @@
 //! # }
 //! ```
 #![cfg(feature = "reqwest")]
-use std::collections::BTreeMap;
 
 use anyhow::{Result, anyhow};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use serde_json::Value;
 use std::time::Duration;
 use url::Url;
 
-use crate::{BmsTable, BmsTableInfo, BmsTableRaw, fetch::replace_control_chars};
+use crate::{
+    BmsTable, BmsTableData, BmsTableHeader, BmsTableInfo, BmsTableList, BmsTableRaw,
+    fetch::{HeaderQueryContent, get_web_header_json_value, replace_control_chars},
+};
 
 /// Fetch and parse a complete BMS difficulty table from a web page or a header JSON source.
 ///
@@ -57,39 +58,32 @@ pub async fn fetch_table_full(
         .text()
         .await
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
-    let (header_url, header_json, header_raw) =
-        match crate::fetch::get_web_header_json_value(&web_response)? {
-            crate::fetch::HeaderQueryContent::Url(header_url_string) => {
-                let header_url = web_url.join(&header_url_string)?;
-                let header_response = client
-                    .get(header_url.clone())
-                    .send()
-                    .await
-                    .map_err(|e| anyhow!("When fetching header: {e}"))?;
-                let header_response_string = header_response
-                    .text()
-                    .await
-                    .map_err(|e| anyhow!("When parsing header response: {e}"))?;
-                let crate::fetch::HeaderQueryContent::Json(header_json) =
-                    crate::fetch::get_web_header_json_value(&header_response_string)?
-                else {
-                    return Err(anyhow!(
-                        "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
-                    ));
-                };
-                (header_url, header_json, header_response_string)
-            }
-            crate::fetch::HeaderQueryContent::Json(value) => {
-                let header_raw = serde_json::to_string(&value)?;
-                (web_url, value, header_raw)
-            }
-        };
-    let data_url_str = header_json
-        .get("data_url")
-        .ok_or_else(|| anyhow!("\"data_url\" not found in header json!"))?
-        .as_str()
-        .ok_or_else(|| anyhow!("\"data_url\" is not a string!"))?;
-    let data_url = header_url.join(data_url_str)?;
+    let (header_url, header_json, header_raw) = match get_web_header_json_value(&web_response)? {
+        HeaderQueryContent::Url(header_url_string) => {
+            let header_url = web_url.join(&header_url_string)?;
+            let header_response = client
+                .get(header_url.clone())
+                .send()
+                .await
+                .map_err(|e| anyhow!("When fetching header: {e}"))?;
+            let header_response_string = header_response
+                .text()
+                .await
+                .map_err(|e| anyhow!("When parsing header response: {e}"))?;
+            let HeaderQueryContent::Json(header_json) =
+                get_web_header_json_value(&header_response_string)?
+            else {
+                return Err(anyhow!(
+                    "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
+                ));
+            };
+            (header_url, header_json, header_response_string)
+        }
+        HeaderQueryContent::Json(value) => (web_url, value, web_response),
+    };
+    let header: BmsTableHeader = serde_json::from_value(header_json)
+        .map_err(|e| anyhow!("When parsing header json: {e}"))?;
+    let data_url = header_url.join(&header.data_url)?;
     let data_response = client
         .get(data_url.clone())
         .send()
@@ -100,12 +94,8 @@ pub async fn fetch_table_full(
         .map_err(|e| anyhow!("When parsing web response: {e}"))?;
     // Remove illegal control characters before parsing while keeping the original data_raw unchanged
     let data_cleaned = replace_control_chars(&data_response);
-    let data_json: Value = serde_json::from_str(&data_cleaned)?;
-    // Build BmsTable via the crate's deserialization
-    let header: crate::BmsTableHeader = serde_json::from_value(header_json)
-        .map_err(|e| anyhow!("When parsing header json: {e}"))?;
-    let data: crate::BmsTableData =
-        serde_json::from_value(data_json).map_err(|e| anyhow!("When parsing data json: {e}"))?;
+    let data: BmsTableData =
+        serde_json::from_str(&data_cleaned).map_err(|e| anyhow!("When parsing data json: {e}"))?;
     Ok((
         BmsTable { header, data },
         BmsTableRaw {
@@ -156,52 +146,9 @@ pub async fn fetch_table_list_full(
 
     // Remove illegal control characters before parsing while keeping the original response text unchanged
     let cleaned = replace_control_chars(&response_text);
-    let value: Value = serde_json::from_str(&cleaned)?;
-    let arr = value
-        .as_array()
-        .ok_or_else(|| anyhow!("Table list root is not an array"))?;
-
-    let mut out = Vec::with_capacity(arr.len());
-    for (idx, item) in arr.iter().enumerate() {
-        let obj = item
-            .as_object()
-            .ok_or_else(|| anyhow!("Table list item #{idx} is not an object"))?;
-
-        let name = obj
-            .get("name")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("Missing required field 'name' at index {idx}"))?;
-        let symbol = obj
-            .get("symbol")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("Missing required field 'symbol' at index {idx}"))?;
-        let url_str = obj
-            .get("url")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("Missing required field 'url' at index {idx}"))?;
-        let url = Url::parse(url_str)?;
-
-        #[cfg(feature = "serde")]
-        let extra = {
-            let mut m: BTreeMap<String, Value> = BTreeMap::new();
-            for (k, v) in obj.iter() {
-                if k != "name" && k != "symbol" && k != "url" {
-                    m.insert(k.clone(), v.clone());
-                }
-            }
-            m
-        };
-
-        let entry = BmsTableInfo {
-            name: name.to_string(),
-            symbol: symbol.to_string(),
-            url,
-            #[cfg(feature = "serde")]
-            extra,
-        };
-        out.push(entry);
-    }
-
+    let out: Vec<BmsTableInfo> = serde_json::from_str::<BmsTableList>(&cleaned)
+        .map(|list| list.indexes)
+        .map_err(|e| anyhow!("When parsing table list json: {e}"))?;
     Ok((out, response_text))
 }
 
