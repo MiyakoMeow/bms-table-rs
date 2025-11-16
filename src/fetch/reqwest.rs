@@ -147,7 +147,7 @@ pub async fn fetch_table_list_full(
     // Remove illegal control characters before parsing while keeping the original response text unchanged
     let cleaned = replace_control_chars(&response_text);
     let out: Vec<BmsTableInfo> = serde_json::from_str::<BmsTableList>(&cleaned)
-        .map(|list| list.indexes)
+        .map(|list| list.listes)
         .map_err(|e| anyhow!("When parsing table list json: {e}"))?;
     Ok((out, response_text))
 }
