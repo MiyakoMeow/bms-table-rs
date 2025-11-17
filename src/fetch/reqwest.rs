@@ -213,7 +213,7 @@ fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, St
         Ok(v) => Ok((v, raw.to_string())),
         Err(_) => {
             let cleaned = replace_control_chars(raw);
-            let v = serde_json::from_str::<T>(&cleaned).context("When parsing cleaned json")?;
+            let v = serde_json::from_str::<T>(&cleaned)?;
             Ok((v, cleaned))
         }
     }
@@ -231,8 +231,7 @@ fn header_query_with_fallback<T: DeserializeOwned>(
         Ok(v) => Ok((v, raw.to_string())),
         Err(_) => {
             let cleaned = replace_control_chars(raw);
-            let v = get_web_header_json_value::<T>(&cleaned)
-                .context("When extracting header from cleaned text")?;
+            let v = get_web_header_json_value::<T>(&cleaned)?;
             Ok((v, cleaned))
         }
     }
