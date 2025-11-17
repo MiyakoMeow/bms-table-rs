@@ -47,8 +47,25 @@ pub enum HeaderQueryContent<T> {
 ///
 /// Rationale: some sites return JSON with illegal control characters surrounding it.
 /// Cleaning prior to parsing improves compatibility while not affecting preservation of raw text.
-pub(crate) fn replace_control_chars(s: &str) -> String {
+#[must_use]
+pub fn replace_control_chars(s: &str) -> String {
     s.chars().filter(|ch: &char| !ch.is_control()).collect()
+}
+
+/// Parse JSON from a raw string with a cleaning fallback.
+///
+/// Tries to deserialize from the original `raw` first. If it fails, removes illegal
+/// control characters using [`replace_control_chars`] and retries. Returns the parsed
+/// value and the raw string that was successfully used.
+pub fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, String)> {
+    match serde_json::from_str::<T>(raw) {
+        Ok(v) => Ok((v, raw.to_string())),
+        Err(_) => {
+            let cleaned = replace_control_chars(raw);
+            let v = serde_json::from_str::<T>(&cleaned)?;
+            Ok((v, cleaned))
+        }
+    }
 }
 
 /// Parse a response string into the header JSON or its URL.
@@ -71,9 +88,27 @@ pub fn get_web_header_json_value<T: DeserializeOwned>(
     match serde_json::from_str::<T>(&cleaned) {
         Ok(header_json) => Ok(HeaderQueryContent::Value(header_json)),
         Err(_) => {
-            let bmstable_url =
-                extract_bmstable_url(response_str).context("When extracting bmstable url")?;
+            let bmstable_url = try_extract_bmstable_from_html(response_str)
+                .context("When extracting bmstable url")?;
             Ok(HeaderQueryContent::Url(bmstable_url))
+        }
+    }
+}
+
+/// Extract the header query content from a response string with a fallback cleaning step.
+///
+/// Attempts [`get_web_header_json_value`] on `raw` first; on failure, retries with
+/// a control-character-cleaned string via [`replace_control_chars`]. Returns the content
+/// and the raw string actually used for the successful extraction.
+pub fn header_query_with_fallback<T: DeserializeOwned>(
+    raw: &str,
+) -> Result<(HeaderQueryContent<T>, String)> {
+    match get_web_header_json_value::<T>(raw) {
+        Ok(v) => Ok((v, raw.to_string())),
+        Err(_) => {
+            let cleaned = replace_control_chars(raw);
+            let v = get_web_header_json_value::<T>(&cleaned)?;
+            Ok((v, cleaned))
         }
     }
 }
@@ -85,103 +120,41 @@ pub fn get_web_header_json_value<T: DeserializeOwned>(
 /// # Errors
 ///
 /// Returns an error when the target tag is not found or `content` is empty.
-pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
+pub fn try_extract_bmstable_from_html(html_content: &str) -> Result<String> {
     let document = Html::parse_document(html_content);
+    let meta_selector = Selector::parse("meta").map_err(|_| anyhow!("meta tag not found"))?;
+    let link_selector = Selector::parse("link").ok();
+    let a_selector = Selector::parse("a").ok();
+    let script_selector = Selector::parse("script").ok();
 
-    // Find all meta tags
-    let Ok(meta_selector) = Selector::parse("meta") else {
-        return Err(anyhow!("meta tag not found"));
-    };
+    let candidate = meta_bmstable(&document, &meta_selector)
+        .or_else(|| {
+            link_selector
+                .as_ref()
+                .and_then(|sel| link_bmstable(&document, sel))
+        })
+        .or_else(|| {
+            a_selector
+                .as_ref()
+                .and_then(|sel| a_href_header_json(&document, sel))
+        })
+        .or_else(|| {
+            link_selector
+                .as_ref()
+                .and_then(|sel| link_href_header_json(&document, sel))
+        })
+        .or_else(|| {
+            script_selector
+                .as_ref()
+                .and_then(|sel| script_src_header_json(&document, sel))
+        })
+        .or_else(|| meta_content_header_json(&document, &meta_selector))
+        .or_else(|| text_header_json(html_content));
 
-    // 1) Prefer extracting from <meta name="bmstable" content="..."> or <meta property="bmstable">
-    for element in document.select(&meta_selector) {
-        // Tags whose name or property is bmstable
-        let is_bmstable = element
-            .value()
-            .attr("name")
-            .is_some_and(|v| v.eq_ignore_ascii_case("bmstable"))
-            || element
-                .value()
-                .attr("property")
-                .is_some_and(|v| v.eq_ignore_ascii_case("bmstable"));
-        if is_bmstable
-            && let Some(content_attr) = element.value().attr("content")
-            && !content_attr.is_empty()
-        {
-            return Ok(content_attr.to_string());
-        }
-    }
-
-    // 2) Next, try <link rel="bmstable" href="...json">
-    if let Ok(link_selector) = Selector::parse("link") {
-        for element in document.select(&link_selector) {
-            let rel = element.value().attr("rel");
-            let href = element.value().attr("href");
-            if rel.is_some_and(|v| v.eq_ignore_ascii_case("bmstable"))
-                && let Some(href) = href
-                && !href.is_empty()
-            {
-                return Ok(href.to_string());
-            }
-        }
-    }
-
-    // 3) Then try to find clues for *header*.json in common tag attributes
-    //    - a[href], link[href], script[src], meta[content]
-    let lower_contains_header_json = |s: &str| {
-        let ls = s.to_ascii_lowercase();
-        ls.contains("header") && ls.ends_with(".json")
-    };
-
-    // a[href]
-    if let Ok(a_selector) = Selector::parse("a") {
-        for element in document.select(&a_selector) {
-            if let Some(href) = element.value().attr("href")
-                && lower_contains_header_json(href)
-            {
-                return Ok(href.to_string());
-            }
-        }
-    }
-
-    // link[href]
-    if let Ok(link_selector) = Selector::parse("link") {
-        for element in document.select(&link_selector) {
-            if let Some(href) = element.value().attr("href")
-                && lower_contains_header_json(href)
-            {
-                return Ok(href.to_string());
-            }
-        }
-    }
-
-    // script[src]
-    if let Ok(script_selector) = Selector::parse("script") {
-        for element in document.select(&script_selector) {
-            if let Some(src) = element.value().attr("src")
-                && lower_contains_header_json(src)
-            {
-                return Ok(src.to_string());
-            }
-        }
-    }
-
-    // meta[content]
-    for element in document.select(&meta_selector) {
-        if let Some(content_attr) = element.value().attr("content")
-            && lower_contains_header_json(content_attr)
-        {
-            return Ok(content_attr.to_string());
-        }
-    }
-
-    // 4) Finally, a minimal heuristic search on raw text: match substrings containing "header" and ending with .json
-    if let Some((start, end)) = find_header_json_in_text(html_content) {
-        let candidate = &html_content[start..end];
-        return Ok(candidate.to_string());
-    }
-
-    Err(anyhow!("bmstable field or header JSON hint not found"))
+    candidate.map_or_else(
+        || Err(anyhow!("bmstable field or header JSON hint not found")),
+        Ok,
+    )
 }
 
 /// Find a substring like "*header*.json" in raw text, returning start/end indices if found.
@@ -205,4 +178,90 @@ fn find_header_json_in_text(s: &str) -> Option<(usize, usize)> {
         pos = global_idx + 6; // skip "header"
     }
     None
+}
+
+fn contains_header_json(s: &str) -> bool {
+    let ls = s.to_ascii_lowercase();
+    ls.contains("header") && ls.ends_with(".json")
+}
+
+fn meta_bmstable(document: &Html, meta_selector: &Selector) -> Option<String> {
+    for element in document.select(meta_selector) {
+        let is_bmstable = element
+            .value()
+            .attr("name")
+            .is_some_and(|v| v.eq_ignore_ascii_case("bmstable"))
+            || element
+                .value()
+                .attr("property")
+                .is_some_and(|v| v.eq_ignore_ascii_case("bmstable"));
+        if is_bmstable
+            && let Some(content_attr) = element.value().attr("content")
+            && !content_attr.is_empty()
+        {
+            return Some(content_attr.to_string());
+        }
+    }
+    None
+}
+
+fn link_bmstable(document: &Html, link_selector: &Selector) -> Option<String> {
+    for element in document.select(link_selector) {
+        let rel = element.value().attr("rel");
+        let href = element.value().attr("href");
+        if rel.is_some_and(|v| v.eq_ignore_ascii_case("bmstable"))
+            && href.is_some_and(|v| !v.is_empty())
+        {
+            return href.map(|v| v.to_string());
+        }
+    }
+    None
+}
+
+fn a_href_header_json(document: &Html, a_selector: &Selector) -> Option<String> {
+    for element in document.select(a_selector) {
+        if let Some(href) = element.value().attr("href")
+            && contains_header_json(href)
+        {
+            return Some(href.to_string());
+        }
+    }
+    None
+}
+
+fn link_href_header_json(document: &Html, link_selector: &Selector) -> Option<String> {
+    for element in document.select(link_selector) {
+        if let Some(href) = element.value().attr("href")
+            && contains_header_json(href)
+        {
+            return Some(href.to_string());
+        }
+    }
+    None
+}
+
+fn script_src_header_json(document: &Html, script_selector: &Selector) -> Option<String> {
+    for element in document.select(script_selector) {
+        if let Some(src) = element.value().attr("src")
+            && contains_header_json(src)
+        {
+            return Some(src.to_string());
+        }
+    }
+    None
+}
+
+fn meta_content_header_json(document: &Html, meta_selector: &Selector) -> Option<String> {
+    for element in document.select(meta_selector) {
+        if let Some(content_attr) = element.value().attr("content")
+            && contains_header_json(content_attr)
+        {
+            return Some(content_attr.to_string());
+        }
+    }
+    None
+}
+
+fn text_header_json(html_content: &str) -> Option<String> {
+    find_header_json_in_text(html_content).map(|(start, end)| html_content[start..end].to_string())
 }

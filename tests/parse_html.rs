@@ -3,8 +3,9 @@
 //!
 //! Verifies reading the `content` from `<meta name="bmstable">` and joining relative URLs.
 
-use bms_table::fetch::extract_bmstable_url;
-use bms_table::fetch::{HeaderQueryContent, get_web_header_json_value};
+use bms_table::fetch::{
+    HeaderQueryContent, get_web_header_json_value, try_extract_bmstable_from_html,
+};
 use url::Url;
 
 // Tests for HTML parsing and URL behavior
@@ -24,7 +25,7 @@ fn test_parser_creation() {
     </html>
     "#;
 
-    let result = extract_bmstable_url(html_content);
+    let result = try_extract_bmstable_from_html(html_content);
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "header.json");
 }
@@ -43,7 +44,7 @@ fn test_parser_no_bmstable() {
     </html>
     "#;
 
-    let result = extract_bmstable_url(html_content);
+    let result = try_extract_bmstable_from_html(html_content);
     assert!(result.is_err());
 }
 
