@@ -47,11 +47,17 @@ pub enum HeaderQueryContent<T> {
 ///
 /// Rationale: some sites return JSON with illegal control characters surrounding it.
 /// Cleaning prior to parsing improves compatibility while not affecting preservation of raw text.
-pub(crate) fn replace_control_chars(s: &str) -> String {
+#[must_use]
+pub fn replace_control_chars(s: &str) -> String {
     s.chars().filter(|ch: &char| !ch.is_control()).collect()
 }
 
-pub(crate) fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, String)> {
+/// Parse JSON from a raw string with a cleaning fallback.
+///
+/// Tries to deserialize from the original `raw` first. If it fails, removes illegal
+/// control characters using [`replace_control_chars`] and retries. Returns the parsed
+/// value and the raw string that was successfully used.
+pub fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, String)> {
     match serde_json::from_str::<T>(raw) {
         Ok(v) => Ok((v, raw.to_string())),
         Err(_) => {
@@ -89,7 +95,12 @@ pub fn get_web_header_json_value<T: DeserializeOwned>(
     }
 }
 
-pub(crate) fn header_query_with_fallback<T: DeserializeOwned>(
+/// Extract the header query content from a response string with a fallback cleaning step.
+///
+/// Attempts [`get_web_header_json_value`] on `raw` first; on failure, retries with
+/// a control-character-cleaned string via [`replace_control_chars`]. Returns the content
+/// and the raw string actually used for the successful extraction.
+pub fn header_query_with_fallback<T: DeserializeOwned>(
     raw: &str,
 ) -> Result<(HeaderQueryContent<T>, String)> {
     match get_web_header_json_value::<T>(raw) {
