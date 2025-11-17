@@ -25,9 +25,11 @@
 //! # #[cfg(feature = "reqwest")]
 //! # async fn main() -> anyhow::Result<()> {
 //! use bms_table::fetch::reqwest::{fetch_table, make_lenient_client};
+//! use url::Url;
 //!
 //! let client = make_lenient_client()?;
-//! let table = fetch_table(&client, "https://stellabms.xyz/sl/table.html").await?;
+//! let url = Url::parse("https://stellabms.xyz/sl/table.html")?;
+//! let table = fetch_table(&client, &url).await?;
 //! println!("{}: {} charts", table.header.name, table.data.charts.len());
 //! # Ok(())
 //! # }
@@ -61,8 +63,10 @@
 //! # #[cfg(feature = "reqwest")]
 //! # async fn main() -> anyhow::Result<()> {
 //! use bms_table::fetch::reqwest::{fetch_table_list, make_lenient_client};
+//! use url::Url;
 //! let client = make_lenient_client()?;
-//! let listes = fetch_table_list(&client, "https://example.com/table_list.json").await?;
+//! let url = Url::parse("https://example.com/table_list.json")?;
+//! let listes = fetch_table_list(&client, &url).await?;
 //! assert!(!listes.is_empty());
 //! # Ok(())
 //! # }

@@ -12,8 +12,10 @@
 //! # #[tokio::main]
 //! # async fn main() -> anyhow::Result<()> {
 //! use bms_table::fetch::reqwest::{fetch_table, make_lenient_client};
+//! use url::Url;
 //! let client = make_lenient_client()?;
-//! let table = fetch_table(&client, "https://stellabms.xyz/sl/table.html").await?;
+//! let url = Url::parse("https://stellabms.xyz/sl/table.html")?;
+//! let table = fetch_table(&client, &url).await?;
 //! assert!(!table.data.charts.is_empty());
 //! # Ok(())
 //! # }
@@ -47,9 +49,8 @@ use crate::{
 /// - Header JSON does not contain `data_url` or has the wrong type
 pub async fn fetch_table_full(
     client: &reqwest::Client,
-    web_url: &str,
+    web_url: &Url,
 ) -> Result<(BmsTable, BmsTableRaw)> {
-    let web_url = Url::parse(web_url).context("When parsing web url")?;
     let web_response = client
         .get(web_url.clone())
         .send()
@@ -83,7 +84,7 @@ pub async fn fetch_table_full(
             };
             (header_url, v, raw2)
         }
-        HeaderQueryContent::Value(value) => (web_url, value, web_used_raw),
+        HeaderQueryContent::Value(value) => (web_url.clone(), value, web_used_raw),
     };
     let data_url = header_url
         .join(&header.data_url)
@@ -112,7 +113,7 @@ pub async fn fetch_table_full(
 /// Fetch and parse a complete BMS difficulty table.
 ///
 /// See [`fetch_table_full`].
-pub async fn fetch_table(client: &reqwest::Client, web_url: &str) -> Result<BmsTable> {
+pub async fn fetch_table(client: &reqwest::Client, web_url: &Url) -> Result<BmsTable> {
     let (table, _raw) = fetch_table_full(client, web_url)
         .await
         .context("When fetching full table")?;
@@ -125,7 +126,7 @@ pub async fn fetch_table(client: &reqwest::Client, web_url: &str) -> Result<BmsT
 /// Each item only requires `name`, `symbol`, and `url` (string); all other fields are collected into `extra`.
 pub async fn fetch_table_list(
     client: &reqwest::Client,
-    web_url: &str,
+    web_url: &Url,
 ) -> Result<Vec<BmsTableInfo>> {
     let (out, _raw) = fetch_table_list_full(client, web_url)
         .await
@@ -138,11 +139,10 @@ pub async fn fetch_table_list(
 /// Returns the parsed array of list entries and the raw JSON response text for recording or debugging.
 pub async fn fetch_table_list_full(
     client: &reqwest::Client,
-    web_url: &str,
+    web_url: &Url,
 ) -> Result<(Vec<BmsTableInfo>, String)> {
-    let web_url = Url::parse(web_url).context("When parsing table list url")?;
     let response_text = client
-        .get(web_url)
+        .get(web_url.clone())
         .send()
         .await
         .context("When fetching table list")?

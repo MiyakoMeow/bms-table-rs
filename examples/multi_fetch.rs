@@ -18,6 +18,8 @@ use bms_table::fetch::reqwest::{fetch_table, make_lenient_client};
 use std::env;
 #[cfg(feature = "reqwest")]
 use tokio::sync::mpsc;
+#[cfg(feature = "reqwest")]
+use url::Url;
 
 /// Main function
 ///
@@ -108,14 +110,17 @@ async fn main() -> Result<()> {
 
 #[cfg(feature = "reqwest")]
 /// Get the list of URLs to use
-fn table_urls() -> Vec<String> {
+fn table_urls() -> Vec<Url> {
     // Read command-line arguments
     let args: Vec<String> = env::args().collect();
 
     // Determine the URL list to use
 
     if args.len() > 1 {
-        args[1..].to_vec()
+        args[1..]
+            .iter()
+            .filter_map(|s| Url::parse(s).ok())
+            .collect()
     } else {
         vec![
             "https://stellabms.xyz/sl/table.html",
@@ -142,7 +147,7 @@ fn table_urls() -> Vec<String> {
         ]
         .into_iter()
         .filter(|url| !url.is_empty())
-        .map(ToString::to_string)
+        .filter_map(|s| Url::parse(s).ok())
         .collect()
     }
 }
@@ -159,7 +164,7 @@ struct FetchResult {
 
 /// Fetch a single difficulty table
 #[cfg(feature = "reqwest")]
-async fn fetch_single_table(client: &reqwest::Client, url: &str) -> FetchResult {
+async fn fetch_single_table(client: &reqwest::Client, url: &Url) -> FetchResult {
     match fetch_table(client, url).await {
         Ok(bms_table) => FetchResult {
             name: bms_table.header.name.clone(),

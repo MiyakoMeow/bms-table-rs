@@ -10,14 +10,18 @@
 
 #[cfg(feature = "reqwest")]
 use bms_table::fetch::reqwest::{fetch_table_list_full, make_lenient_client};
+#[cfg(feature = "reqwest")]
+use url::Url;
 
 #[cfg(feature = "reqwest")]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let url = "https://script.google.com/macros/s/AKfycbzaQbcI9UZDcDlSHHl2NHilhmePrNrwxRdOFkmIXsfnbfksKKmAB3V65WZ8jPWU-7E/exec?table=tablelist";
+    let url = Url::parse(
+        "https://script.google.com/macros/s/AKfycbzaQbcI9UZDcDlSHHl2NHilhmePrNrwxRdOFkmIXsfnbfksKKmAB3V65WZ8jPWU-7E/exec?table=tablelist",
+    )?;
 
     let client = make_lenient_client()?;
-    let (listes, raw) = fetch_table_list_full(&client, url).await?;
+    let (listes, raw) = fetch_table_list_full(&client, &url).await?;
     println!("Fetched {} table list entries.", listes.len());
 
     for (i, item) in listes.iter().take(10).enumerate() {

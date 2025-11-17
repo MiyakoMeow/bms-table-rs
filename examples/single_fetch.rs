@@ -5,6 +5,8 @@ use std::env;
 
 #[cfg(feature = "reqwest")]
 use bms_table::fetch::reqwest::{fetch_table, make_lenient_client};
+#[cfg(feature = "reqwest")]
+use url::Url;
 
 #[cfg(feature = "reqwest")]
 #[tokio::main]
@@ -12,6 +14,7 @@ async fn main() -> Result<()> {
     let url = env::args()
         .nth(1)
         .unwrap_or_else(|| "https://stellabms.xyz/sl/table.html".to_string());
+    let url = Url::parse(&url)?;
 
     let client = make_lenient_client()?;
 
