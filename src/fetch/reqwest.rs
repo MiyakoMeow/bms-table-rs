@@ -22,13 +22,12 @@
 
 use anyhow::{Context, Result, anyhow};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use serde::de::DeserializeOwned;
 use std::time::Duration;
 use url::Url;
 
 use crate::{
     BmsTable, BmsTableData, BmsTableHeader, BmsTableInfo, BmsTableList, BmsTableRaw,
-    fetch::{HeaderQueryContent, get_web_header_json_value, replace_control_chars},
+    fetch::{HeaderQueryContent, header_query_with_fallback, parse_json_str_with_fallback},
 };
 
 /// Fetch and parse a complete BMS difficulty table from a web page or a header JSON source.
@@ -201,38 +200,4 @@ pub fn make_lenient_client() -> Result<reqwest::Client> {
         .build()
         .context("When building client")?;
     Ok(client)
-}
-
-/// Parse JSON from a raw string with a fallback.
-///
-/// Tries to deserialize from the original `raw` first; if it fails,
-/// removes illegal control characters and retries. Returns the parsed
-/// value and the raw string actually used for the successful parse.
-fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, String)> {
-    match serde_json::from_str::<T>(raw) {
-        Ok(v) => Ok((v, raw.to_string())),
-        Err(_) => {
-            let cleaned = replace_control_chars(raw);
-            let v = serde_json::from_str::<T>(&cleaned)?;
-            Ok((v, cleaned))
-        }
-    }
-}
-
-/// Extract header query content from a page string with a fallback.
-///
-/// Attempts `get_web_header_json_value(raw)` first; on failure, retries
-/// with a control-character-cleaned string. Returns the content and the
-/// raw string actually used for the successful extraction.
-fn header_query_with_fallback<T: DeserializeOwned>(
-    raw: &str,
-) -> Result<(HeaderQueryContent<T>, String)> {
-    match get_web_header_json_value::<T>(raw) {
-        Ok(v) => Ok((v, raw.to_string())),
-        Err(_) => {
-            let cleaned = replace_control_chars(raw);
-            let v = get_web_header_json_value::<T>(&cleaned)?;
-            Ok((v, cleaned))
-        }
-    }
 }

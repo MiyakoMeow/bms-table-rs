@@ -51,6 +51,17 @@ pub(crate) fn replace_control_chars(s: &str) -> String {
     s.chars().filter(|ch: &char| !ch.is_control()).collect()
 }
 
+pub(crate) fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, String)> {
+    match serde_json::from_str::<T>(raw) {
+        Ok(v) => Ok((v, raw.to_string())),
+        Err(_) => {
+            let cleaned = replace_control_chars(raw);
+            let v = serde_json::from_str::<T>(&cleaned)?;
+            Ok((v, cleaned))
+        }
+    }
+}
+
 /// Parse a response string into the header JSON or its URL.
 ///
 /// Strategy: first attempt to parse as JSON; if it fails, parse as HTML and extract the bmstable URL.
@@ -71,9 +82,22 @@ pub fn get_web_header_json_value<T: DeserializeOwned>(
     match serde_json::from_str::<T>(&cleaned) {
         Ok(header_json) => Ok(HeaderQueryContent::Value(header_json)),
         Err(_) => {
-            let bmstable_url =
-                extract_bmstable_url(response_str).context("When extracting bmstable url")?;
+            let bmstable_url = try_extract_bmstable_from_html(response_str)
+                .context("When extracting bmstable url")?;
             Ok(HeaderQueryContent::Url(bmstable_url))
+        }
+    }
+}
+
+pub(crate) fn header_query_with_fallback<T: DeserializeOwned>(
+    raw: &str,
+) -> Result<(HeaderQueryContent<T>, String)> {
+    match get_web_header_json_value::<T>(raw) {
+        Ok(v) => Ok((v, raw.to_string())),
+        Err(_) => {
+            let cleaned = replace_control_chars(raw);
+            let v = get_web_header_json_value::<T>(&cleaned)?;
+            Ok((v, cleaned))
         }
     }
 }
@@ -85,7 +109,7 @@ pub fn get_web_header_json_value<T: DeserializeOwned>(
 /// # Errors
 ///
 /// Returns an error when the target tag is not found or `content` is empty.
-pub fn extract_bmstable_url(html_content: &str) -> Result<String> {
+pub fn try_extract_bmstable_from_html(html_content: &str) -> Result<String> {
     let document = Html::parse_document(html_content);
 
     // Find all meta tags
