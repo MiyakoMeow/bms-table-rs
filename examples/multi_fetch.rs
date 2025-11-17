@@ -165,7 +165,7 @@ struct FetchResult {
 /// Fetch a single difficulty table
 #[cfg(feature = "reqwest")]
 async fn fetch_single_table(client: &reqwest::Client, url: &Url) -> FetchResult {
-    match fetch_table(client, url).await {
+    match fetch_table(client, url.clone()).await {
         Ok(bms_table) => FetchResult {
             name: bms_table.header.name.clone(),
             table: Ok(bms_table),

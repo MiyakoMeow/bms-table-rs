@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
     )?;
 
     let client = make_lenient_client()?;
-    let (listes, raw) = fetch_table_list_full(&client, &url).await?;
+    let (listes, raw) = fetch_table_list_full(&client, url.clone()).await?;
     println!("Fetched {} table list entries.", listes.len());
 
     for (i, item) in listes.iter().take(10).enumerate() {

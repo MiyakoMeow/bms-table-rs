@@ -18,7 +18,7 @@ async fn main() -> Result<()> {
 
     let client = make_lenient_client()?;
 
-    match fetch_table(&client, &url).await {
+    match fetch_table(&client, url.clone()).await {
         Ok(table) => {
             println!(
                 "{} fetched successfully ({} charts, {} course groups, {} courses)",
