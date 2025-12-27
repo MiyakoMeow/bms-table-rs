@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.12.0](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.11.0...v0.12.0) (2025-12-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **fetch:** renewed API ([#44](https://github.com/MiyakoMeow/bms-table-rs/issues/44))
+* **reqwest:** use reqwest::IntoUrl ([#27](https://github.com/MiyakoMeow/bms-table-rs/issues/27))
+
+### Features
+
+* **reqwest:** use reqwest::IntoUrl ([#27](https://github.com/MiyakoMeow/bms-table-rs/issues/27)) ([2d7629a](https://github.com/MiyakoMeow/bms-table-rs/commit/2d7629a62378356da860c3bfff694cbe6ad41010))
+
+
+### Bug Fixes
+
+* add linter ([#37](https://github.com/MiyakoMeow/bms-table-rs/issues/37)) ([cf9dcf3](https://github.com/MiyakoMeow/bms-table-rs/commit/cf9dcf3c75ed02b87b589eeb692ccb7d66630977))
+* clippy ([#42](https://github.com/MiyakoMeow/bms-table-rs/issues/42)) ([ebd689b](https://github.com/MiyakoMeow/bms-table-rs/commit/ebd689ba151b957d7d95d438d204406ac1f03119))
+* **doc:** Option ([#38](https://github.com/MiyakoMeow/bms-table-rs/issues/38)) ([19043ad](https://github.com/MiyakoMeow/bms-table-rs/commit/19043adc40e8e2cbe344885df5f81d657435356f))
+* **error:** duplicated message ([#24](https://github.com/MiyakoMeow/bms-table-rs/issues/24)) ([28e1838](https://github.com/MiyakoMeow/bms-table-rs/commit/28e18388806ce616fd8b3335187a8d58a88db703))
+* **fetch:** small fix & tips ([#39](https://github.com/MiyakoMeow/bms-table-rs/issues/39)) ([8ebbe1e](https://github.com/MiyakoMeow/bms-table-rs/commit/8ebbe1e561d892b799bff37c75f33fc5e53db1e6))
+
+
+### Miscellaneous Chores
+
+* change release ([#43](https://github.com/MiyakoMeow/bms-table-rs/issues/43)) ([6548fd2](https://github.com/MiyakoMeow/bms-table-rs/commit/6548fd2726641dde1e6f5e9a7a8dbe7d92f17477))
+
+
+### Code Refactoring
+
+* **fetch:** renewed API ([#44](https://github.com/MiyakoMeow/bms-table-rs/issues/44)) ([65790da](https://github.com/MiyakoMeow/bms-table-rs/commit/65790da415a6dbb61c6f897be06869c5804341a2))
+
 ## [0.11.0](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.10.4...v0.11.0) (2025-11-16)
 
 
