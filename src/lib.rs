@@ -164,7 +164,7 @@ pub struct CourseInfo {
 
 /// Chart data item.
 ///
-/// Describes metadata and resource links for a single BMS file. Optional fields with empty strings are deserialized as `None` to improve data quality.
+/// Describes metadata and resource links for a single BMS file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ChartItem {
