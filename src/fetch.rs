@@ -43,7 +43,7 @@ pub enum HeaderQueryContent<T> {
     Value(T),
 }
 
-/// Remove non-printable control characters from JSON text (preserves `\n`, `\r`, `\t`).
+/// Remove non-printable control characters from JSON text.
 ///
 /// Rationale: some sites return JSON with illegal control characters surrounding it.
 /// Cleaning prior to parsing improves compatibility while not affecting preservation of raw text.
@@ -78,7 +78,7 @@ pub fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T
 ///
 /// # Returns
 ///
-/// - `HeaderQueryContent::Json`: input is JSON;
+/// - `HeaderQueryContent::Value`: input is JSON;
 /// - `HeaderQueryContent::Url`: input is HTML.
 ///
 /// # Errors
@@ -86,7 +86,7 @@ pub fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T
 /// Returns an error when the input is HTML but the bmstable field cannot be found.
 pub fn get_web_header_json_value<T: DeserializeOwned>(
     response_str: &str,
-) -> anyhow::Result<HeaderQueryContent<T>> {
+) -> Result<HeaderQueryContent<T>> {
     // First try parsing as JSON (remove illegal control characters before parsing); if it fails, treat as HTML and extract the bmstable URL
     let cleaned = replace_control_chars(response_str);
     match serde_json::from_str::<T>(&cleaned) {
