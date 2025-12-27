@@ -1,4 +1,4 @@
-//! Single-run example for fetching the table list: uses fetch_table_list_full
+//! Single-run example for fetching the table list: uses `fetch_table_list_full`
 //!
 //! How to run:
 //! - With the default `reqwest` feature enabled, run:

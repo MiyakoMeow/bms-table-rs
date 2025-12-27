@@ -1,3 +1,4 @@
+//! Example: fetch a single BMS difficulty table and print summary
 #![cfg_attr(not(feature = "reqwest"), allow(unused_imports))]
 
 use anyhow::Result;

@@ -151,7 +151,7 @@ pub struct BmsTableData {
 pub struct CourseInfo {
     /// Course name, e.g. "Satellite Skill Analyzer 2nd sl0"
     pub name: String,
-    /// Constraint list, e.g. ["grade_mirror", "gauge_lr2", "ln"]
+    /// Constraint list, e.g. ["`grade_mirror`", "`gauge_lr2`", "ln"]
     #[cfg_attr(feature = "serde", serde(default))]
     pub constraint: Vec<String>,
     /// List of trophies, defining requirements for different ranks

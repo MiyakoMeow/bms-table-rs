@@ -114,6 +114,10 @@ pub async fn fetch_table_full(
 /// Fetch and parse a complete BMS difficulty table.
 ///
 /// See [`fetch_table_full`].
+///
+/// # Errors
+///
+/// Propagates network, parsing, and join errors from [`fetch_table_full`].
 pub async fn fetch_table(client: &Client, web_url: impl IntoUrl) -> Result<BmsTable> {
     let (table, _raw) = fetch_table_full(client, web_url)
         .await
@@ -125,6 +129,10 @@ pub async fn fetch_table(client: &Client, web_url: impl IntoUrl) -> Result<BmsTa
 ///
 /// Downloads a JSON array from the provided `web_url` and parses it into a list of [`crate::BmsTableInfo`].
 /// Each item only requires `name`, `symbol`, and `url` (string); all other fields are collected into `extra`.
+///
+/// # Errors
+///
+/// Propagates network and parsing errors from [`fetch_table_list_full`].
 pub async fn fetch_table_list(client: &Client, web_url: impl IntoUrl) -> Result<Vec<BmsTableInfo>> {
     let (out, _raw) = fetch_table_list_full(client, web_url)
         .await
@@ -135,6 +143,10 @@ pub async fn fetch_table_list(client: &Client, web_url: impl IntoUrl) -> Result<
 /// Fetch a list of BMS difficulty tables along with the raw JSON string.
 ///
 /// Returns the parsed array of list entries and the raw JSON response text for recording or debugging.
+///
+/// # Errors
+///
+/// Returns an error if fetching or parsing the table list fails.
 pub async fn fetch_table_list_full(
     client: &Client,
     web_url: impl IntoUrl,
@@ -162,6 +174,10 @@ pub async fn fetch_table_list_full(
 /// - Accept invalid hostnames (for a few non-compliant sites);
 ///
 /// Note: use `danger_accept_invalid_certs` with caution in production.
+///
+/// # Errors
+///
+/// Returns an error when building the HTTP client fails.
 pub fn make_lenient_client() -> Result<Client> {
     // Default headers emulate real browser behavior more closely
     let mut headers = HeaderMap::new();
