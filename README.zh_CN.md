@@ -30,10 +30,11 @@
 - `CourseInfo`：段位信息，支持 `md5`/`sha256` 列表自动转换为谱面。
 - `ChartItem`：谱面条目；空字符串在反序列化时自动转换为 `None`。
 - `Trophy`：奖杯要求（最大 miss 率、最低得分率）。
-- `fetch::reqwest::fetch_table(url)`：从网页或头部 JSON 源拉取并解析完整表。
-- `fetch::reqwest::fetch_table_full(url)`：同时返回原始头部与数据 JSON 文本。
-- `fetch::reqwest::fetch_table_list(url)`：获取难度表列表。
-- `fetch::reqwest::fetch_table_list_full(url)`：返回列表项与原始 JSON 文本。
+- `fetch::reqwest::Fetcher`：一站式网络抓取器，封装可复用的 `reqwest::Client`。
+- `Fetcher::fetch_table(url)`：从网页或头部 JSON 源拉取并解析完整表。
+- `Fetcher::fetch_table_with_raw(url)`：同时返回原始头部与数据 JSON 文本。
+- `Fetcher::fetch_table_list(url)`：获取难度表列表。
+- `Fetcher::fetch_table_list_with_raw(url)`：返回列表项与原始 JSON 文本。
 - `fetch::get_web_header_json_value(str)`：将响应字符串解析为头部 JSON 或其 URL（`HeaderQueryContent`）。
 - `fetch::extract_bmstable_url(html)`：从 HTML 中提取 bmstable 头部地址。
 

@@ -9,7 +9,7 @@
 #![cfg_attr(not(feature = "reqwest"), allow(unused_imports))]
 
 #[cfg(feature = "reqwest")]
-use bms_table::fetch::reqwest::{fetch_table_list_full, make_lenient_client};
+use bms_table::fetch::reqwest::Fetcher;
 #[cfg(feature = "reqwest")]
 use url::Url;
 
@@ -20,8 +20,10 @@ async fn main() -> anyhow::Result<()> {
         "https://script.google.com/macros/s/AKfycbzaQbcI9UZDcDlSHHl2NHilhmePrNrwxRdOFkmIXsfnbfksKKmAB3V65WZ8jPWU-7E/exec?table=tablelist",
     )?;
 
-    let client = make_lenient_client()?;
-    let (listes, raw) = fetch_table_list_full(&client, url.clone()).await?;
+    let fetcher = Fetcher::lenient()?;
+    let out = fetcher.fetch_table_list(url.clone()).await?;
+    let listes = out.tables;
+    let raw = out.raw_json;
     println!("Fetched {} table list entries.", listes.len());
 
     for (i, item) in listes.iter().take(10).enumerate() {
