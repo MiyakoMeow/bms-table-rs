@@ -1,7 +1,7 @@
-#![cfg(feature = "reqwest")]
 //! Unit tests for network fetching flow (requires the `reqwest` feature)
 //!
 //! Primarily checks error paths and robustness, e.g., errors for invalid URLs.
+#![cfg(feature = "reqwest")]
 
 // Network-related tests (when the reqwest feature is enabled)
 

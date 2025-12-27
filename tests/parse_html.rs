@@ -1,7 +1,7 @@
-#![cfg(feature = "scraper")]
 //! Unit tests for HTML parsing and bmstable URL extraction
 //!
 //! Verifies reading the `content` from `<meta name="bmstable">` and joining relative URLs.
+#![cfg(feature = "scraper")]
 
 use bms_table::fetch::{
     HeaderQueryContent, get_web_header_json_value, try_extract_bmstable_from_html,
