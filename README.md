@@ -30,10 +30,11 @@ A Rust library to fetch and parse BMS difficulty tables. It can build a complete
 - `CourseInfo`: course information; supports automatically converting `md5`/`sha256` lists to chart items.
 - `ChartItem`: a chart item; empty strings are deserialized as `None`.
 - `Trophy`: trophy requirements (max miss rate, minimum score rate).
-- `fetch::reqwest::fetch_table(url)`: fetch and parse a complete table from a web page or a header JSON source.
-- `fetch::reqwest::fetch_table_full(url)`: return both the parsed table and the original header/data JSON texts.
-- `fetch::reqwest::fetch_table_list(url)`: fetch a list of difficulty tables.
-- `fetch::reqwest::fetch_table_list_full(url)`: return the list items along with the original JSON text.
+- `fetch::reqwest::Fetcher`: one-stop network fetcher wrapper around a reusable `reqwest::Client`.
+- `Fetcher::fetch_table(url)`: fetch and parse a complete table from a web page or a header JSON source.
+- `Fetcher::fetch_table_with_raw(url)`: return both the parsed table and the original header/data JSON texts.
+- `Fetcher::fetch_table_list(url)`: fetch a list of difficulty tables.
+- `Fetcher::fetch_table_list_with_raw(url)`: return the list items along with the original JSON text.
 - `fetch::get_web_header_json_value(str)`: parse a response string into header JSON or its URL (`HeaderQueryContent`).
 - `fetch::extract_bmstable_url(html)`: extract the bmstable header URL from HTML.
 
