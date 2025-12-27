@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
     )?;
 
     let fetcher = Fetcher::lenient()?;
-    let out = fetcher.fetch_table_list_with_raw(url.clone()).await?;
+    let out = fetcher.fetch_table_list(url.clone()).await?;
     let listes = out.tables;
     let raw = out.raw_json;
     println!("Fetched {} table list entries.", listes.len());

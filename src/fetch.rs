@@ -26,10 +26,11 @@
 
 pub mod reqwest;
 
-use anyhow::{Context, Result, anyhow};
-use scraper::{Html, Selector};
-use serde::de::DeserializeOwned;
 use std::future::Future;
+
+use anyhow::{Context, Result, anyhow};
+use scraper::{ElementRef, Html, Selector};
+use serde::de::DeserializeOwned;
 
 use crate::{BmsTable, BmsTableInfo, BmsTableRaw};
 
@@ -51,39 +52,22 @@ pub struct FetchedTableList {
 
 /// Unified interface for fetching BMS tables.
 pub trait TableFetcher {
-    /// Fetch and parse a complete BMS difficulty table.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if fetching or parsing the table fails.
-    fn fetch_table(&self, web_url: url::Url) -> impl Future<Output = Result<BmsTable>> + Send + '_;
-
     /// Fetch and parse a complete BMS difficulty table, including raw JSON strings.
     ///
     /// # Errors
     ///
     /// Returns an error if fetching or parsing the table fails.
-    fn fetch_table_with_raw(
+    fn fetch_table(
         &self,
         web_url: url::Url,
     ) -> impl Future<Output = Result<FetchedTable>> + Send + '_;
-
-    /// Fetch a list of BMS difficulty tables.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if fetching or parsing the list fails.
-    fn fetch_table_list(
-        &self,
-        web_url: url::Url,
-    ) -> impl Future<Output = Result<Vec<BmsTableInfo>>> + Send + '_;
 
     /// Fetch a list of BMS difficulty tables, including the raw JSON string.
     ///
     /// # Errors
     ///
     /// Returns an error if fetching or parsing the list fails.
-    fn fetch_table_list_with_raw(
+    fn fetch_table_list(
         &self,
         web_url: url::Url,
     ) -> impl Future<Output = Result<FetchedTableList>> + Send + '_;
@@ -194,29 +178,59 @@ pub fn try_extract_bmstable_from_html(html_content: &str) -> Result<String> {
     let a_selector = Selector::parse("a").ok();
     let script_selector = Selector::parse("script").ok();
 
+    let find_attr = |selector: &Selector,
+                     attr: &str,
+                     keep: &mut dyn FnMut(&ElementRef<'_>, &str) -> bool|
+     -> Option<String> {
+        for element in document.select(selector) {
+            if let Some(value) = element.value().attr(attr)
+                && keep(&element, value)
+            {
+                return Some(value.to_string());
+            }
+        }
+        None
+    };
+
     let candidate = meta_bmstable(&document, &meta_selector)
         .or_else(|| {
+            let mut keep = |element: &ElementRef<'_>, href: &str| {
+                element
+                    .value()
+                    .attr("rel")
+                    .is_some_and(|v| v.eq_ignore_ascii_case("bmstable"))
+                    && !href.is_empty()
+            };
             link_selector
                 .as_ref()
-                .and_then(|sel| link_bmstable(&document, sel))
+                .and_then(|sel| find_attr(sel, "href", &mut keep))
         })
         .or_else(|| {
+            let mut keep = |_: &ElementRef<'_>, href: &str| contains_header_json(href);
             a_selector
                 .as_ref()
-                .and_then(|sel| a_href_header_json(&document, sel))
+                .and_then(|sel| find_attr(sel, "href", &mut keep))
         })
         .or_else(|| {
+            let mut keep = |_: &ElementRef<'_>, href: &str| contains_header_json(href);
             link_selector
                 .as_ref()
-                .and_then(|sel| link_href_header_json(&document, sel))
+                .and_then(|sel| find_attr(sel, "href", &mut keep))
         })
         .or_else(|| {
+            let mut keep = |_: &ElementRef<'_>, src: &str| contains_header_json(src);
             script_selector
                 .as_ref()
-                .and_then(|sel| script_src_header_json(&document, sel))
+                .and_then(|sel| find_attr(sel, "src", &mut keep))
         })
-        .or_else(|| meta_content_header_json(&document, &meta_selector))
-        .or_else(|| text_header_json(html_content));
+        .or_else(|| {
+            let mut keep = |_: &ElementRef<'_>, content: &str| contains_header_json(content);
+            find_attr(&meta_selector, "content", &mut keep)
+        })
+        .or_else(|| {
+            find_header_json_in_text(html_content)
+                .map(|(start, end)| html_content[start..end].to_string())
+        });
 
     candidate.map_or_else(
         || Err(anyhow!("bmstable field or header JSON hint not found")),
@@ -272,71 +286,4 @@ fn meta_bmstable(document: &Html, meta_selector: &Selector) -> Option<String> {
         }
     }
     None
-}
-
-/// Extract header URL from `<link rel="bmstable" href="...">`.
-fn link_bmstable(document: &Html, link_selector: &Selector) -> Option<String> {
-    for element in document.select(link_selector) {
-        let rel = element.value().attr("rel");
-        let href = element.value().attr("href");
-        if rel.is_some_and(|v| v.eq_ignore_ascii_case("bmstable"))
-            && href.is_some_and(|v| !v.is_empty())
-        {
-            return href.map(std::string::ToString::to_string);
-        }
-    }
-    None
-}
-
-/// Find anchor `<a href="...">` linking to a header JSON.
-fn a_href_header_json(document: &Html, a_selector: &Selector) -> Option<String> {
-    for element in document.select(a_selector) {
-        if let Some(href) = element.value().attr("href")
-            && contains_header_json(href)
-        {
-            return Some(href.to_string());
-        }
-    }
-    None
-}
-
-/// Find `<link href="...">` pointing to a header JSON.
-fn link_href_header_json(document: &Html, link_selector: &Selector) -> Option<String> {
-    for element in document.select(link_selector) {
-        if let Some(href) = element.value().attr("href")
-            && contains_header_json(href)
-        {
-            return Some(href.to_string());
-        }
-    }
-    None
-}
-
-/// Find `<script src="...">` pointing to a header JSON.
-fn script_src_header_json(document: &Html, script_selector: &Selector) -> Option<String> {
-    for element in document.select(script_selector) {
-        if let Some(src) = element.value().attr("src")
-            && contains_header_json(src)
-        {
-            return Some(src.to_string());
-        }
-    }
-    None
-}
-
-/// Read `<meta content="...">` values that look like header JSON paths.
-fn meta_content_header_json(document: &Html, meta_selector: &Selector) -> Option<String> {
-    for element in document.select(meta_selector) {
-        if let Some(content_attr) = element.value().attr("content")
-            && contains_header_json(content_attr)
-        {
-            return Some(content_attr.to_string());
-        }
-    }
-    None
-}
-
-/// Extract a header JSON path from raw text when no tags are present.
-fn text_header_json(html_content: &str) -> Option<String> {
-    find_header_json_in_text(html_content).map(|(start, end)| html_content[start..end].to_string())
 }

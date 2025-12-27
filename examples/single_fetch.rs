@@ -20,7 +20,8 @@ async fn main() -> Result<()> {
     let fetcher = Fetcher::lenient()?;
 
     match fetcher.fetch_table(url.clone()).await {
-        Ok(table) => {
+        Ok(fetched) => {
+            let table = fetched.table;
             println!(
                 "{} fetched successfully ({} charts, {} course groups, {} courses)",
                 table.header.name,

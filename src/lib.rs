@@ -27,7 +27,7 @@
 //! use bms_table::fetch::reqwest::Fetcher;
 //!
 //! let fetcher = Fetcher::lenient()?;
-//! let table = fetcher.fetch_table("https://stellabms.xyz/sl/table.html").await?;
+//! let table = fetcher.fetch_table("https://stellabms.xyz/sl/table.html").await?.table;
 //! println!("{}: {} charts", table.header.name, table.data.charts.len());
 //! # Ok(())
 //! # }
@@ -62,7 +62,7 @@
 //! # async fn main() -> anyhow::Result<()> {
 //! use bms_table::fetch::reqwest::Fetcher;
 //! let fetcher = Fetcher::lenient()?;
-//! let listes = fetcher.fetch_table_list("https://example.com/table_list.json").await?;
+//! let listes = fetcher.fetch_table_list("https://example.com/table_list.json").await?.tables;
 //! assert!(!listes.is_empty());
 //! # Ok(())
 //! # }

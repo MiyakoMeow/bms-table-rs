@@ -4,7 +4,7 @@
 //! - Fetch the page and extract the bmstable header URL from HTML (if present);
 //! - Download and parse the header JSON;
 //! - Download and parse chart data according to `data_url` in the header;
-//! - Return a `BmsTable` containing the header and the chart set.
+//! - Return a parsed `BmsTable` plus the raw JSON strings used for parsing.
 //!
 //! # Example
 //!
@@ -13,7 +13,7 @@
 //! # async fn main() -> anyhow::Result<()> {
 //! use bms_table::fetch::reqwest::Fetcher;
 //! let fetcher = Fetcher::lenient()?;
-//! let table = fetcher.fetch_table("https://stellabms.xyz/sl/table.html").await?;
+//! let table = fetcher.fetch_table("https://stellabms.xyz/sl/table.html").await?.table;
 //! assert!(!table.data.charts.is_empty());
 //! # Ok(())
 //! # }
@@ -30,7 +30,7 @@ use reqwest::{
 use serde::de::DeserializeOwned;
 
 use crate::{
-    BmsTable, BmsTableData, BmsTableHeader, BmsTableInfo, BmsTableList, BmsTableRaw,
+    BmsTable, BmsTableData, BmsTableHeader, BmsTableList, BmsTableRaw,
     fetch::{
         FetchedTable, FetchedTableList, HeaderQueryContent, TableFetcher,
         header_query_with_fallback, parse_json_str_with_fallback,
@@ -73,18 +73,61 @@ impl Fetcher {
     /// # Errors
     ///
     /// Returns an error if fetching or parsing the table fails.
-    pub async fn fetch_table(&self, web_url: impl IntoUrl) -> Result<BmsTable> {
-        Ok(self.fetch_table_with_raw(web_url).await?.table)
-    }
+    pub async fn fetch_table(&self, web_url: impl IntoUrl) -> Result<FetchedTable> {
+        let web_url = web_url.into_url().context("When parsing target url")?;
 
-    /// Fetch and parse a complete BMS difficulty table, including raw JSON strings.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if fetching or parsing the table fails.
-    pub async fn fetch_table_with_raw(&self, web_url: impl IntoUrl) -> Result<FetchedTable> {
-        let (table, raw) = self.fetch_table_full_inner(web_url).await?;
-        Ok(FetchedTable { table, raw })
+        let web_page_text = self.fetch_text(web_url.clone(), "web page").await?;
+
+        let (web_header_query, web_used_text) =
+            header_query_with_fallback::<BmsTableHeader>(&web_page_text)
+                .context("When extracting header query from web page")?;
+
+        let (header_json_url, header, header_raw) = match web_header_query {
+            HeaderQueryContent::Url(header_url_string) => {
+                let header_json_url = web_url
+                    .join(&header_url_string)
+                    .context("When resolving header json url")?;
+
+                let header_text = self
+                    .fetch_text(header_json_url.clone(), "header json")
+                    .await?;
+
+                let (header_query2, header_used_text) =
+                    header_query_with_fallback::<BmsTableHeader>(&header_text)
+                        .context("When parsing header json")?;
+
+                let HeaderQueryContent::Value(header) = header_query2 else {
+                    return Err(anyhow!(
+                        "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
+                    ));
+                };
+
+                (header_json_url, header, header_used_text)
+            }
+            HeaderQueryContent::Value(header) => (web_url, header, web_used_text),
+        };
+
+        let data_json_url = header_json_url
+            .join(&header.data_url)
+            .context("When resolving data json url")?;
+
+        let (data, data_raw) = self
+            .fetch_json_with_fallback::<BmsTableData>(
+                data_json_url.clone(),
+                "data json",
+                "data json",
+            )
+            .await?;
+
+        Ok(FetchedTable {
+            table: BmsTable { header, data },
+            raw: BmsTableRaw {
+                header_json_url,
+                header_raw,
+                data_json_url,
+                data_raw,
+            },
+        })
     }
 
     /// Fetch a list of BMS difficulty tables.
@@ -92,21 +135,16 @@ impl Fetcher {
     /// # Errors
     ///
     /// Returns an error if fetching or parsing the list fails.
-    pub async fn fetch_table_list(&self, web_url: impl IntoUrl) -> Result<Vec<BmsTableInfo>> {
-        Ok(self.fetch_table_list_with_raw(web_url).await?.tables)
-    }
+    pub async fn fetch_table_list(&self, web_url: impl IntoUrl) -> Result<FetchedTableList> {
+        let list_url = web_url.into_url().context("When parsing table list url")?;
 
-    /// Fetch a list of BMS difficulty tables, including the raw JSON string.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if fetching or parsing the list fails.
-    pub async fn fetch_table_list_with_raw(
-        &self,
-        web_url: impl IntoUrl,
-    ) -> Result<FetchedTableList> {
-        let (tables, raw_json) = self.fetch_table_list_full_inner(web_url).await?;
-        Ok(FetchedTableList { tables, raw_json })
+        let (list, raw_used) = self
+            .fetch_json_with_fallback::<BmsTableList>(list_url, "table list", "table list json")
+            .await?;
+        Ok(FetchedTableList {
+            tables: list.listes,
+            raw_json: raw_used,
+        })
     }
 
     /// Fetch a URL as text, attaching contextual error messages.
@@ -140,124 +178,15 @@ impl Fetcher {
         parse_json_str_with_fallback::<T>(&text)
             .with_context(|| format!("When parsing {parse_ctx}"))
     }
-
-    /// Resolve a header query into the final header JSON URL and parsed header.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if resolving URLs, fetching header JSON, or parsing header fails.
-    async fn resolve_header_from_query(
-        &self,
-        web_url: reqwest::Url,
-        web_header_query: HeaderQueryContent<BmsTableHeader>,
-        web_used_text: String,
-    ) -> Result<(reqwest::Url, BmsTableHeader, String)> {
-        match web_header_query {
-            HeaderQueryContent::Url(header_url_string) => {
-                let header_json_url = web_url
-                    .join(&header_url_string)
-                    .context("When resolving header json url")?;
-
-                let header_text = self
-                    .fetch_text(header_json_url.clone(), "header json")
-                    .await?;
-
-                let (header_query2, header_used_text) =
-                    header_query_with_fallback::<BmsTableHeader>(&header_text)
-                        .context("When parsing header json")?;
-
-                let HeaderQueryContent::Value(header) = header_query2 else {
-                    return Err(anyhow!(
-                        "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
-                    ));
-                };
-
-                Ok((header_json_url, header, header_used_text))
-            }
-            HeaderQueryContent::Value(header) => Ok((web_url, header, web_used_text)),
-        }
-    }
-
-    /// Fetch and parse a complete BMS difficulty table and its raw JSON strings.
-    ///
-    /// # Errors
-    ///
-    /// - Network request failures (connection failure, timeout, etc.)
-    /// - Response content cannot be parsed as HTML/JSON or structure is unexpected
-    /// - Header JSON does not contain `data_url` or has the wrong type
-    async fn fetch_table_full_inner(
-        &self,
-        web_url: impl IntoUrl,
-    ) -> Result<(BmsTable, BmsTableRaw)> {
-        let web_url = web_url.into_url().context("When parsing target url")?;
-
-        let web_page_text = self.fetch_text(web_url.clone(), "web page").await?;
-
-        let (web_header_query, web_used_text) =
-            header_query_with_fallback::<BmsTableHeader>(&web_page_text)
-                .context("When extracting header query from web page")?;
-
-        let (header_json_url, header, header_raw) = self
-            .resolve_header_from_query(web_url, web_header_query, web_used_text)
-            .await?;
-
-        let data_json_url = header_json_url
-            .join(&header.data_url)
-            .context("When resolving data json url")?;
-
-        let (data, data_raw_str) = self
-            .fetch_json_with_fallback::<BmsTableData>(
-                data_json_url.clone(),
-                "data json",
-                "data json",
-            )
-            .await?;
-
-        Ok((
-            BmsTable { header, data },
-            BmsTableRaw {
-                header_json_url,
-                header_raw,
-                data_json_url,
-                data_raw: data_raw_str,
-            },
-        ))
-    }
-
-    /// Fetch a list of BMS difficulty tables along with the raw JSON string.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if fetching or parsing the table list fails.
-    async fn fetch_table_list_full_inner(
-        &self,
-        web_url: impl IntoUrl,
-    ) -> Result<(Vec<BmsTableInfo>, String)> {
-        let list_url = web_url.into_url().context("When parsing table list url")?;
-
-        let (list, raw_used) = self
-            .fetch_json_with_fallback::<BmsTableList>(list_url, "table list", "table list json")
-            .await?;
-        let out: Vec<BmsTableInfo> = list.listes;
-        Ok((out, raw_used))
-    }
 }
 
 impl TableFetcher for Fetcher {
-    async fn fetch_table(&self, web_url: url::Url) -> Result<BmsTable> {
+    async fn fetch_table(&self, web_url: url::Url) -> Result<FetchedTable> {
         Fetcher::fetch_table(self, web_url).await
     }
 
-    async fn fetch_table_with_raw(&self, web_url: url::Url) -> Result<FetchedTable> {
-        Fetcher::fetch_table_with_raw(self, web_url).await
-    }
-
-    async fn fetch_table_list(&self, web_url: url::Url) -> Result<Vec<BmsTableInfo>> {
+    async fn fetch_table_list(&self, web_url: url::Url) -> Result<FetchedTableList> {
         Fetcher::fetch_table_list(self, web_url).await
-    }
-
-    async fn fetch_table_list_with_raw(&self, web_url: url::Url) -> Result<FetchedTableList> {
-        Fetcher::fetch_table_list_with_raw(self, web_url).await
     }
 }
 
