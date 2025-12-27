@@ -54,15 +54,21 @@ where
 /// Internal helper type: used to construct `CourseInfo` more simply and handle md5/sha256 lists.
 #[derive(Deserialize)]
 struct CourseInfoRaw {
+    /// Course name
     name: String,
+    /// Constraint list
     #[serde(default)]
     constraint: Vec<String>,
+    /// Trophy list
     #[serde(default)]
     trophy: Vec<Trophy>,
+    /// MD5 list converted into chart items
     #[serde(default, rename = "md5")]
     md5list: Vec<String>,
+    /// SHA256 list converted into chart items
     #[serde(default, rename = "sha256")]
     sha256list: Vec<String>,
+    /// Raw chart objects (filled with default level if missing)
     #[serde(default)]
     charts: Vec<Value>,
 }

@@ -1,3 +1,4 @@
+//! Unit tests for serialization behavior of header, chart items, and table data
 #![cfg(feature = "serde")]
 
 use bms_table::{BmsTableData, BmsTableHeader, ChartItem};
@@ -113,6 +114,6 @@ fn test_bms_table_data_serialize_array() {
 
     let parsed: BmsTableData = serde_json::from_value(value).unwrap();
     assert_eq!(parsed.charts.len(), 2);
-    assert_eq!(parsed.charts[0].level, "0");
-    assert_eq!(parsed.charts[1].level, "1");
+    assert_eq!(parsed.charts.first().map(|c| c.level.as_str()), Some("0"));
+    assert_eq!(parsed.charts.get(1).map(|c| c.level.as_str()), Some("1"));
 }

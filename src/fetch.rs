@@ -57,6 +57,10 @@ pub fn replace_control_chars(s: &str) -> String {
 /// Tries to deserialize from the original `raw` first. If it fails, removes illegal
 /// control characters using [`replace_control_chars`] and retries. Returns the parsed
 /// value and the raw string that was successfully used.
+///
+/// # Errors
+///
+/// Returns an error when both the original and cleaned strings fail to deserialize.
 pub fn parse_json_str_with_fallback<T: DeserializeOwned>(raw: &str) -> Result<(T, String)> {
     match serde_json::from_str::<T>(raw) {
         Ok(v) => Ok((v, raw.to_string())),
@@ -100,6 +104,10 @@ pub fn get_web_header_json_value<T: DeserializeOwned>(
 /// Attempts [`get_web_header_json_value`] on `raw` first; on failure, retries with
 /// a control-character-cleaned string via [`replace_control_chars`]. Returns the content
 /// and the raw string actually used for the successful extraction.
+///
+/// # Errors
+///
+/// Returns an error when both attempts fail to extract a header URL or parse JSON.
 pub fn header_query_with_fallback<T: DeserializeOwned>(
     raw: &str,
 ) -> Result<(HeaderQueryContent<T>, String)> {
@@ -157,7 +165,7 @@ pub fn try_extract_bmstable_from_html(html_content: &str) -> Result<String> {
     )
 }
 
-/// Find a substring like "*header*.json" in raw text, returning start/end indices if found.
+/// Find the start and end indices of a substring like "*header*.json" in raw text.
 fn find_header_json_in_text(s: &str) -> Option<(usize, usize)> {
     let lower = s.to_ascii_lowercase();
     let mut pos = 0;
@@ -180,11 +188,13 @@ fn find_header_json_in_text(s: &str) -> Option<(usize, usize)> {
     None
 }
 
+/// Check whether the string contains "header" and ends with ".json".
 fn contains_header_json(s: &str) -> bool {
     let ls = s.to_ascii_lowercase();
     ls.contains("header") && ls.ends_with(".json")
 }
 
+/// Extract bmstable content from `<meta>` tags.
 fn meta_bmstable(document: &Html, meta_selector: &Selector) -> Option<String> {
     for element in document.select(meta_selector) {
         let is_bmstable = element
@@ -205,6 +215,7 @@ fn meta_bmstable(document: &Html, meta_selector: &Selector) -> Option<String> {
     None
 }
 
+/// Extract header URL from `<link rel="bmstable" href="...">`.
 fn link_bmstable(document: &Html, link_selector: &Selector) -> Option<String> {
     for element in document.select(link_selector) {
         let rel = element.value().attr("rel");
@@ -218,6 +229,7 @@ fn link_bmstable(document: &Html, link_selector: &Selector) -> Option<String> {
     None
 }
 
+/// Find anchor `<a href="...">` linking to a header JSON.
 fn a_href_header_json(document: &Html, a_selector: &Selector) -> Option<String> {
     for element in document.select(a_selector) {
         if let Some(href) = element.value().attr("href")
@@ -229,6 +241,7 @@ fn a_href_header_json(document: &Html, a_selector: &Selector) -> Option<String> 
     None
 }
 
+/// Find `<link href="...">` pointing to a header JSON.
 fn link_href_header_json(document: &Html, link_selector: &Selector) -> Option<String> {
     for element in document.select(link_selector) {
         if let Some(href) = element.value().attr("href")
@@ -240,6 +253,7 @@ fn link_href_header_json(document: &Html, link_selector: &Selector) -> Option<St
     None
 }
 
+/// Find `<script src="...">` pointing to a header JSON.
 fn script_src_header_json(document: &Html, script_selector: &Selector) -> Option<String> {
     for element in document.select(script_selector) {
         if let Some(src) = element.value().attr("src")
@@ -251,6 +265,7 @@ fn script_src_header_json(document: &Html, script_selector: &Selector) -> Option
     None
 }
 
+/// Read `<meta content="...">` values that look like header JSON paths.
 fn meta_content_header_json(document: &Html, meta_selector: &Selector) -> Option<String> {
     for element in document.select(meta_selector) {
         if let Some(content_attr) = element.value().attr("content")
@@ -262,6 +277,7 @@ fn meta_content_header_json(document: &Html, meta_selector: &Selector) -> Option
     None
 }
 
+/// Extract a header JSON path from raw text when no tags are present.
 fn text_header_json(html_content: &str) -> Option<String> {
     find_header_json_in_text(html_content).map(|(start, end)| html_content[start..end].to_string())
 }

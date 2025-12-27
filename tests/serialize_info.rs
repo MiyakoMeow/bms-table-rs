@@ -1,3 +1,4 @@
+//! Unit tests for serialization of `BmsTableInfo` and `BmsTableList`
 #![cfg(feature = "scraper")]
 use std::collections::BTreeMap;
 
@@ -54,6 +55,9 @@ fn test_bms_table_list_serialize_array() {
 
     let parsed: BmsTableList = serde_json::from_value(value).unwrap();
     assert_eq!(parsed.listes.len(), 2);
-    assert_eq!(parsed.listes[0].name, ".WAS難易度表");
-    assert_eq!(parsed.listes[1].symbol, "[F]");
+    assert_eq!(
+        parsed.listes.first().map(|i| i.name.as_str()),
+        Some(".WAS難易度表")
+    );
+    assert_eq!(parsed.listes.get(1).map(|i| i.symbol.as_str()), Some("[F]"));
 }

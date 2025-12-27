@@ -58,18 +58,30 @@ fn test_build_bms_table_from_json() {
     assert_eq!(bms_table.header.course.len(), 1);
     assert_eq!(bms_table.data.charts.len(), 1);
 
-    let course = &bms_table.header.course[0][0];
+    let course = bms_table
+        .header
+        .course
+        .first()
+        .and_then(|g| g.first())
+        .expect("course[0][0]");
     assert_eq!(course.name, "Test Course");
     assert_eq!(course.constraint, vec!["grade_mirror"]);
     assert_eq!(course.trophy.len(), 1);
-    assert_eq!(course.trophy[0].name, "goldmedal");
-    assert_eq!(course.trophy[0].missrate, 1.0);
-    assert_eq!(course.trophy[0].scorerate, 90.0);
+    let trophy0 = course.trophy.first().expect("trophy[0]");
+    assert_eq!(trophy0.name, "goldmedal");
+    assert!((trophy0.missrate - 1.0).abs() <= 1e-12);
+    assert!((trophy0.scorerate - 90.0).abs() <= 1e-12);
     assert_eq!(course.charts.len(), 2);
-    assert_eq!(course.charts[0].md5, Some("test_md5_1".to_string()));
-    assert_eq!(course.charts[1].md5, Some("test_md5_2".to_string()));
+    assert_eq!(
+        course.charts.first().and_then(|c| c.md5.clone()),
+        Some("test_md5_1".to_string())
+    );
+    assert_eq!(
+        course.charts.get(1).and_then(|c| c.md5.clone()),
+        Some("test_md5_2".to_string())
+    );
 
-    let score = &bms_table.data.charts[0];
+    let score = bms_table.data.charts.first().expect("charts[0]");
     assert_eq!(score.level, "1");
     assert_eq!(score.md5, Some("test_md5_1".to_string()));
     assert_eq!(score.sha256, Some("test_sha256_1".to_string()));
@@ -99,9 +111,30 @@ fn test_build_bms_table_from_json() {
     assert!(!score.extra.contains_key("level"));
 
     assert_eq!(bms_table.header.level_order.len(), 22);
-    assert_eq!(bms_table.header.level_order[0], "0");
-    assert_eq!(bms_table.header.level_order[20], "20");
-    assert_eq!(bms_table.header.level_order[21], "!i");
+    assert_eq!(
+        bms_table
+            .header
+            .level_order
+            .first()
+            .map(std::string::String::as_str),
+        Some("0")
+    );
+    assert_eq!(
+        bms_table
+            .header
+            .level_order
+            .get(20)
+            .map(std::string::String::as_str),
+        Some("20")
+    );
+    assert_eq!(
+        bms_table
+            .header
+            .level_order
+            .get(21)
+            .map(std::string::String::as_str),
+        Some("!i")
+    );
     assert!(!bms_table.header.extra.contains_key("level_order"));
 }
 
@@ -128,7 +161,7 @@ fn test_build_bms_table_with_empty_fields() {
     let header: BmsTableHeader = serde_json::from_value(header_json).unwrap();
     let data: BmsTableData = serde_json::from_value(data_json).unwrap();
     let bms_table = BmsTable { header, data };
-    let score = &bms_table.data.charts[0];
+    let score = bms_table.data.charts.first().expect("charts[0]");
     assert_eq!(score.level, "1");
     // Current behavior keeps empty strings as Some("") for optional string fields
     assert_eq!(score.md5, Some("".to_string()));
@@ -201,7 +234,7 @@ fn test_chart_item_numeric_fields_to_string() {
         }
     ]);
     let data: BmsTableData = serde_json::from_value(data_json).unwrap();
-    let score = &data.charts[0];
+    let score = data.charts.first().expect("charts[0]");
     assert_eq!(score.level, "0");
     assert_eq!(score.md5, Some("12345".to_string()));
     assert_eq!(score.sha256, Some("67890".to_string()));
@@ -261,13 +294,30 @@ fn test_bms_table_header_deserialize_vec_course_info() {
     assert_eq!(header.symbol, "test");
     assert_eq!(header.data_url, "score.json");
     assert_eq!(header.course.len(), 1);
-    assert_eq!(header.course[0].len(), 1);
-    assert_eq!(header.course[0][0].name, "Course 1");
+    assert_eq!(header.course.first().map(std::vec::Vec::len), Some(1));
+    assert_eq!(
+        header
+            .course
+            .first()
+            .and_then(|g| g.first())
+            .map(|c| c.name.as_str()),
+        Some("Course 1")
+    );
 
-    let course = &header.course[0][0];
+    let course = header
+        .course
+        .first()
+        .and_then(|g| g.first())
+        .expect("course[0][0]");
     assert_eq!(course.charts.len(), 2);
-    assert_eq!(course.charts[0].md5, Some("abc123".to_string()));
-    assert_eq!(course.charts[1].md5, Some("def456".to_string()));
+    assert_eq!(
+        course.charts.first().and_then(|c| c.md5.clone()),
+        Some("abc123".to_string())
+    );
+    assert_eq!(
+        course.charts.get(1).and_then(|c| c.md5.clone()),
+        Some("def456".to_string())
+    );
 }
 
 #[test]
@@ -316,19 +366,50 @@ fn test_bms_table_header_deserialize_vec_vec_course_info() {
     assert_eq!(header.symbol, "test");
     assert_eq!(header.data_url, "score.json");
     assert_eq!(header.course.len(), 2);
-    assert_eq!(header.course[0].len(), 1);
-    assert_eq!(header.course[1].len(), 1);
-    assert_eq!(header.course[0][0].name, "Course 1");
-    assert_eq!(header.course[1][0].name, "Course 2");
+    assert_eq!(header.course.first().map(std::vec::Vec::len), Some(1));
+    assert_eq!(header.course.get(1).map(std::vec::Vec::len), Some(1));
+    assert_eq!(
+        header
+            .course
+            .first()
+            .and_then(|g| g.first())
+            .map(|c| c.name.as_str()),
+        Some("Course 1")
+    );
+    assert_eq!(
+        header
+            .course
+            .get(1)
+            .and_then(|g| g.first())
+            .map(|c| c.name.as_str()),
+        Some("Course 2")
+    );
 
-    let course1 = &header.course[0][0];
+    let course1 = header
+        .course
+        .first()
+        .and_then(|g| g.first())
+        .expect("course[0][0]");
     assert_eq!(course1.charts.len(), 2);
-    assert_eq!(course1.charts[0].md5, Some("abc123".to_string()));
-    assert_eq!(course1.charts[1].md5, Some("def456".to_string()));
+    assert_eq!(
+        course1.charts.first().and_then(|c| c.md5.clone()),
+        Some("abc123".to_string())
+    );
+    assert_eq!(
+        course1.charts.get(1).and_then(|c| c.md5.clone()),
+        Some("def456".to_string())
+    );
 
-    let course2 = &header.course[1][0];
+    let course2 = header
+        .course
+        .get(1)
+        .and_then(|g| g.first())
+        .expect("course[1][0]");
     assert_eq!(course2.charts.len(), 1);
-    assert_eq!(course2.charts[0].md5, Some("ghi789".to_string()));
+    assert_eq!(
+        course2.charts.first().and_then(|c| c.md5.clone()),
+        Some("ghi789".to_string())
+    );
 }
 
 #[test]
@@ -367,12 +448,12 @@ fn test_course_info_deserialize_charts_with_default_level() {
     assert_eq!(course_info.trophy.len(), 1);
     assert_eq!(course_info.charts.len(), 2);
 
-    let first_chart = &course_info.charts[0];
+    let first_chart = course_info.charts.first().expect("charts[0]");
     assert_eq!(first_chart.level, "0");
     assert_eq!(first_chart.title, Some("Test Song".to_string()));
     assert_eq!(first_chart.artist, Some("Test Artist".to_string()));
 
-    let second_chart = &course_info.charts[1];
+    let second_chart = course_info.charts.get(1).expect("charts[1]");
     assert_eq!(second_chart.level, "1");
     assert_eq!(second_chart.title, Some("Test Song 2".to_string()));
     assert_eq!(second_chart.artist, Some("Test Artist 2".to_string()));
@@ -403,15 +484,15 @@ fn test_course_info_deserialize_sha256list_to_charts() {
     assert_eq!(course_info.charts.len(), 2);
 
     assert_eq!(
-        course_info.charts[0].sha256,
+        course_info.charts.first().and_then(|c| c.sha256.clone()),
         Some("sha256_hash_1".to_string())
     );
     assert_eq!(
-        course_info.charts[1].sha256,
+        course_info.charts.get(1).and_then(|c| c.sha256.clone()),
         Some("sha256_hash_2".to_string())
     );
-    assert_eq!(course_info.charts[0].md5, None);
-    assert_eq!(course_info.charts[1].md5, None);
+    assert_eq!(course_info.charts.first().and_then(|c| c.md5.clone()), None);
+    assert_eq!(course_info.charts.get(1).and_then(|c| c.md5.clone()), None);
 }
 
 #[test]
@@ -446,24 +527,36 @@ fn test_course_info_deserialize_md5_and_sha256_to_charts() {
     assert_eq!(course_info.trophy.len(), 1);
     assert_eq!(course_info.charts.len(), 3);
 
-    assert_eq!(course_info.charts[0].level, "2");
     assert_eq!(
-        course_info.charts[0].title,
+        course_info.charts.first().map(|c| c.level.as_str()),
+        Some("2")
+    );
+    assert_eq!(
+        course_info.charts.first().and_then(|c| c.title.clone()),
         Some("Existing Chart".to_string())
     );
     assert_eq!(
-        course_info.charts[0].artist,
+        course_info.charts.first().and_then(|c| c.artist.clone()),
         Some("Test Artist".to_string())
     );
 
-    assert_eq!(course_info.charts[1].md5, Some("md5_hash_1".to_string()));
-    assert_eq!(course_info.charts[1].level, "0");
+    assert_eq!(
+        course_info.charts.get(1).and_then(|c| c.md5.clone()),
+        Some("md5_hash_1".to_string())
+    );
+    assert_eq!(
+        course_info.charts.get(1).map(|c| c.level.as_str()),
+        Some("0")
+    );
 
     assert_eq!(
-        course_info.charts[2].sha256,
+        course_info.charts.get(2).and_then(|c| c.sha256.clone()),
         Some("sha256_hash_1".to_string())
     );
-    assert_eq!(course_info.charts[2].level, "0");
+    assert_eq!(
+        course_info.charts.get(2).map(|c| c.level.as_str()),
+        Some("0")
+    );
 }
 
 #[test]

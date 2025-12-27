@@ -117,8 +117,8 @@ fn table_urls() -> Vec<Url> {
     // Determine the URL list to use
 
     if args.len() > 1 {
-        args[1..]
-            .iter()
+        args.iter()
+            .skip(1)
             .filter_map(|s| Url::parse(s).ok())
             .collect()
     } else {
