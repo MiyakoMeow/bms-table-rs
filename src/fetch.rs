@@ -212,7 +212,7 @@ fn link_bmstable(document: &Html, link_selector: &Selector) -> Option<String> {
         if rel.is_some_and(|v| v.eq_ignore_ascii_case("bmstable"))
             && href.is_some_and(|v| !v.is_empty())
         {
-            return href.map(|v| v.to_string());
+            return href.map(std::string::ToString::to_string);
         }
     }
     None
