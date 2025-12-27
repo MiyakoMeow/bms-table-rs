@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.11.0...v1.0.0) (2025-12-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **reqwest:** use reqwest::IntoUrl ([#27](https://github.com/MiyakoMeow/bms-table-rs/issues/27))
+
+### Features
+
+* **reqwest:** use reqwest::IntoUrl ([#27](https://github.com/MiyakoMeow/bms-table-rs/issues/27)) ([2d7629a](https://github.com/MiyakoMeow/bms-table-rs/commit/2d7629a62378356da860c3bfff694cbe6ad41010))
+
+
+### Bug Fixes
+
+* **error:** duplicated message ([#24](https://github.com/MiyakoMeow/bms-table-rs/issues/24)) ([28e1838](https://github.com/MiyakoMeow/bms-table-rs/commit/28e18388806ce616fd8b3335187a8d58a88db703))
+
 ## [0.11.0](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.10.4...v0.11.0) (2025-11-16)
 
 
