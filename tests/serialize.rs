@@ -114,6 +114,13 @@ fn test_bms_table_data_serialize_array() {
 
     let parsed: BmsTableData = serde_json::from_value(value).unwrap();
     assert_eq!(parsed.charts.len(), 2);
-    assert_eq!(parsed.charts.first().map(|c| c.level.as_str()), Some("0"));
-    assert_eq!(parsed.charts.get(1).map(|c| c.level.as_str()), Some("1"));
+    let [c0, c1] = parsed.charts.as_slice() else {
+        panic!(
+            "expected two charts, got {}: {:?}",
+            parsed.charts.len(),
+            parsed.charts
+        );
+    };
+    assert_eq!(c0.level.as_str(), "0");
+    assert_eq!(c1.level.as_str(), "1");
 }
