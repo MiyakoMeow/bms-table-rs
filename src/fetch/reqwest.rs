@@ -20,12 +20,13 @@
 //! ```
 #![cfg(feature = "reqwest")]
 
+use std::time::Duration;
+
 use anyhow::{Context, Result, anyhow};
 use reqwest::{
     Client, IntoUrl,
     header::{HeaderMap, HeaderName, HeaderValue},
 };
-use std::time::Duration;
 
 use crate::{
     BmsTable, BmsTableData, BmsTableHeader, BmsTableInfo, BmsTableList, BmsTableRaw,
@@ -51,61 +52,73 @@ pub async fn fetch_table_full(
     client: &Client,
     web_url: impl IntoUrl,
 ) -> Result<(BmsTable, BmsTableRaw)> {
-    let web_url = web_url.into_url().context("When parsing web url")?;
-    let web_response = client
+    let web_url = web_url.into_url().context("When parsing target url")?;
+
+    let web_page_text = client
         .get(web_url.clone())
         .send()
         .await
-        .context("When fetching web")?
+        .context("When fetching web page")?
         .text()
         .await
-        .context("When parsing web response")?;
-    let (hq, web_used_raw) = header_query_with_fallback::<BmsTableHeader>(&web_response)
-        .context("When parsing header query")?;
-    let (header_url, header, header_raw) = match hq {
+        .context("When reading web page body")?;
+
+    let (web_header_query, web_used_text) =
+        header_query_with_fallback::<BmsTableHeader>(&web_page_text)
+            .context("When extracting header query from web page")?;
+
+    let (header_json_url, header, header_raw) = match web_header_query {
         HeaderQueryContent::Url(header_url_string) => {
-            let header_url = web_url
+            let header_json_url = web_url
                 .join(&header_url_string)
-                .context("When joining header url")?;
-            let header_response = client
-                .get(header_url.clone())
+                .context("When resolving header json url")?;
+
+            let header_text = client
+                .get(header_json_url.clone())
                 .send()
                 .await
-                .context("When fetching header")?;
-            let header_response_string = header_response
+                .context("When fetching header json")?
                 .text()
                 .await
-                .context("When parsing header response")?;
-            let (hq2, raw2) = header_query_with_fallback::<BmsTableHeader>(&header_response_string)
-                .context("When parsing header query")?;
-            let HeaderQueryContent::Value(v) = hq2 else {
+                .context("When reading header json body")?;
+
+            let (header_query2, header_used_text) =
+                header_query_with_fallback::<BmsTableHeader>(&header_text)
+                    .context("When parsing header json")?;
+
+            let HeaderQueryContent::Value(header) = header_query2 else {
                 return Err(anyhow!(
                     "Cycled header found. web_url: {web_url}, header_url: {header_url_string}"
                 ));
             };
-            (header_url, v, raw2)
+
+            (header_json_url, header, header_used_text)
         }
-        HeaderQueryContent::Value(value) => (web_url, value, web_used_raw),
+        HeaderQueryContent::Value(header) => (web_url.clone(), header, web_used_text),
     };
-    let data_url = header_url
+
+    let data_json_url = header_json_url
         .join(&header.data_url)
-        .context("When joining data url")?;
-    let data_response = client
-        .get(data_url.clone())
+        .context("When resolving data json url")?;
+
+    let data_text = client
+        .get(data_json_url.clone())
         .send()
         .await
-        .context("When fetching web")?
+        .context("When fetching data json")?
         .text()
         .await
-        .context("When parsing web response")?;
-    let (data, data_raw_str) = parse_json_str_with_fallback::<BmsTableData>(&data_response)
+        .context("When reading data json body")?;
+
+    let (data, data_raw_str) = parse_json_str_with_fallback::<BmsTableData>(&data_text)
         .context("When parsing data json")?;
+
     Ok((
         BmsTable { header, data },
         BmsTableRaw {
-            header_json_url: header_url,
+            header_json_url,
             header_raw,
-            data_json_url: data_url,
+            data_json_url,
             data_raw: data_raw_str,
         },
     ))
@@ -151,16 +164,17 @@ pub async fn fetch_table_list_full(
     client: &Client,
     web_url: impl IntoUrl,
 ) -> Result<(Vec<BmsTableInfo>, String)> {
-    let web_url = web_url.into_url().context("When parsing table list url")?;
-    let response_text = client
-        .get(web_url)
+    let list_url = web_url.into_url().context("When parsing table list url")?;
+    let list_text = client
+        .get(list_url)
         .send()
         .await
         .context("When fetching table list")?
         .text()
         .await
-        .context("When parsing table list response")?;
-    let (list, raw_used) = parse_json_str_with_fallback::<BmsTableList>(&response_text)
+        .context("When reading table list body")?;
+
+    let (list, raw_used) = parse_json_str_with_fallback::<BmsTableList>(&list_text)
         .context("When parsing table list json")?;
     let out: Vec<BmsTableInfo> = list.listes;
     Ok((out, raw_used))
