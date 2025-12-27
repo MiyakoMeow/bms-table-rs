@@ -29,6 +29,65 @@ pub mod reqwest;
 use anyhow::{Context, Result, anyhow};
 use scraper::{Html, Selector};
 use serde::de::DeserializeOwned;
+use std::future::Future;
+
+use crate::{BmsTable, BmsTableInfo, BmsTableRaw};
+
+/// Result of fetching a table with its raw JSON strings.
+pub struct FetchedTable {
+    /// Parsed table.
+    pub table: BmsTable,
+    /// Raw JSON strings and resolved URLs.
+    pub raw: BmsTableRaw,
+}
+
+/// Result of fetching a table list with its raw JSON string.
+pub struct FetchedTableList {
+    /// Parsed list entries.
+    pub tables: Vec<BmsTableInfo>,
+    /// Raw JSON string actually used for parsing.
+    pub raw_json: String,
+}
+
+/// Unified interface for fetching BMS tables.
+pub trait TableFetcher {
+    /// Fetch and parse a complete BMS difficulty table.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching or parsing the table fails.
+    fn fetch_table(&self, web_url: url::Url) -> impl Future<Output = Result<BmsTable>> + Send + '_;
+
+    /// Fetch and parse a complete BMS difficulty table, including raw JSON strings.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching or parsing the table fails.
+    fn fetch_table_with_raw(
+        &self,
+        web_url: url::Url,
+    ) -> impl Future<Output = Result<FetchedTable>> + Send + '_;
+
+    /// Fetch a list of BMS difficulty tables.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching or parsing the list fails.
+    fn fetch_table_list(
+        &self,
+        web_url: url::Url,
+    ) -> impl Future<Output = Result<Vec<BmsTableInfo>>> + Send + '_;
+
+    /// Fetch a list of BMS difficulty tables, including the raw JSON string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching or parsing the list fails.
+    fn fetch_table_list_with_raw(
+        &self,
+        web_url: url::Url,
+    ) -> impl Future<Output = Result<FetchedTableList>> + Send + '_;
+}
 
 /// Return type of [`get_web_header_json_value`].
 ///

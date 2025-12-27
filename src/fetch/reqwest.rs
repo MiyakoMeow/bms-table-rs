@@ -31,7 +31,10 @@ use serde::de::DeserializeOwned;
 
 use crate::{
     BmsTable, BmsTableData, BmsTableHeader, BmsTableInfo, BmsTableList, BmsTableRaw,
-    fetch::{HeaderQueryContent, header_query_with_fallback, parse_json_str_with_fallback},
+    fetch::{
+        FetchedTable, FetchedTableList, HeaderQueryContent, TableFetcher,
+        header_query_with_fallback, parse_json_str_with_fallback,
+    },
 };
 
 /// Fetcher wrapper around a reusable [`reqwest::Client`].
@@ -79,9 +82,9 @@ impl Fetcher {
     /// # Errors
     ///
     /// Returns an error if fetching or parsing the table fails.
-    pub async fn fetch_table_with_raw(&self, web_url: impl IntoUrl) -> Result<FetchTableOutput> {
+    pub async fn fetch_table_with_raw(&self, web_url: impl IntoUrl) -> Result<FetchedTable> {
         let (table, raw) = self.fetch_table_full_inner(web_url).await?;
-        Ok(FetchTableOutput { table, raw })
+        Ok(FetchedTable { table, raw })
     }
 
     /// Fetch a list of BMS difficulty tables.
@@ -101,9 +104,9 @@ impl Fetcher {
     pub async fn fetch_table_list_with_raw(
         &self,
         web_url: impl IntoUrl,
-    ) -> Result<FetchTableListOutput> {
+    ) -> Result<FetchedTableList> {
         let (tables, raw_json) = self.fetch_table_list_full_inner(web_url).await?;
-        Ok(FetchTableListOutput { tables, raw_json })
+        Ok(FetchedTableList { tables, raw_json })
     }
 
     /// Fetch a URL as text, attaching contextual error messages.
@@ -240,20 +243,22 @@ impl Fetcher {
     }
 }
 
-/// Result of fetching a table with its raw JSON strings.
-pub struct FetchTableOutput {
-    /// Parsed table.
-    pub table: BmsTable,
-    /// Raw JSON strings and resolved URLs.
-    pub raw: BmsTableRaw,
-}
+impl TableFetcher for Fetcher {
+    async fn fetch_table(&self, web_url: url::Url) -> Result<BmsTable> {
+        Fetcher::fetch_table(self, web_url).await
+    }
 
-/// Result of fetching a table list with its raw JSON string.
-pub struct FetchTableListOutput {
-    /// Parsed list entries.
-    pub tables: Vec<BmsTableInfo>,
-    /// Raw JSON string actually used for parsing.
-    pub raw_json: String,
+    async fn fetch_table_with_raw(&self, web_url: url::Url) -> Result<FetchedTable> {
+        Fetcher::fetch_table_with_raw(self, web_url).await
+    }
+
+    async fn fetch_table_list(&self, web_url: url::Url) -> Result<Vec<BmsTableInfo>> {
+        Fetcher::fetch_table_list(self, web_url).await
+    }
+
+    async fn fetch_table_list_with_raw(&self, web_url: url::Url) -> Result<FetchedTableList> {
+        Fetcher::fetch_table_list_with_raw(self, web_url).await
+    }
 }
 
 /// Create a more lenient and compatible HTTP client.
