@@ -11,9 +11,9 @@
 //! ```rust,no_run
 //! # #[tokio::main]
 //! # async fn main() -> anyhow::Result<()> {
-//! use bms_table::fetch::reqwest::{fetch_table, make_lenient_client};
-//! let client = make_lenient_client()?;
-//! let table = fetch_table(&client, "https://stellabms.xyz/sl/table.html").await?;
+//! use bms_table::fetch::reqwest::Fetcher;
+//! let fetcher = Fetcher::lenient()?;
+//! let table = fetcher.fetch_table("https://stellabms.xyz/sl/table.html").await?;
 //! assert!(!table.data.charts.is_empty());
 //! # Ok(())
 //! # }
@@ -32,6 +32,97 @@ use crate::{
     BmsTable, BmsTableData, BmsTableHeader, BmsTableInfo, BmsTableList, BmsTableRaw,
     fetch::{HeaderQueryContent, header_query_with_fallback, parse_json_str_with_fallback},
 };
+
+/// Fetcher wrapper around a reusable [`reqwest::Client`].
+///
+/// Provides an ergonomic, one-stop API for fetching a table (or table list) from a web URL.
+#[derive(Clone)]
+pub struct Fetcher {
+    /// Underlying HTTP client.
+    client: Client,
+}
+
+impl Fetcher {
+    /// Create a fetcher from an existing [`reqwest::Client`].
+    #[must_use]
+    pub const fn new(client: Client) -> Self {
+        Self { client }
+    }
+
+    /// Create a fetcher with a more compatible, browser-like HTTP client configuration.
+    ///
+    /// See [`make_lenient_client`] for the exact settings.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if building the underlying HTTP client fails.
+    pub fn lenient() -> Result<Self> {
+        Ok(Self::new(make_lenient_client()?))
+    }
+
+    /// Borrow the underlying [`reqwest::Client`].
+    #[must_use]
+    pub const fn client(&self) -> &Client {
+        &self.client
+    }
+
+    /// Fetch and parse a complete BMS difficulty table.
+    ///
+    /// # Errors
+    ///
+    /// Propagates network, parsing, and join errors from [`fetch_table`].
+    pub async fn fetch_table(&self, web_url: impl IntoUrl) -> Result<BmsTable> {
+        fetch_table(&self.client, web_url).await
+    }
+
+    /// Fetch and parse a complete BMS difficulty table, including raw JSON strings.
+    ///
+    /// # Errors
+    ///
+    /// Propagates network, parsing, and join errors from [`fetch_table_full`].
+    pub async fn fetch_table_with_raw(&self, web_url: impl IntoUrl) -> Result<FetchTableOutput> {
+        let (table, raw) = fetch_table_full(&self.client, web_url).await?;
+        Ok(FetchTableOutput { table, raw })
+    }
+
+    /// Fetch a list of BMS difficulty tables.
+    ///
+    /// # Errors
+    ///
+    /// Propagates network and parsing errors from [`fetch_table_list`].
+    pub async fn fetch_table_list(&self, web_url: impl IntoUrl) -> Result<Vec<BmsTableInfo>> {
+        fetch_table_list(&self.client, web_url).await
+    }
+
+    /// Fetch a list of BMS difficulty tables, including the raw JSON string.
+    ///
+    /// # Errors
+    ///
+    /// Propagates network and parsing errors from [`fetch_table_list_full`].
+    pub async fn fetch_table_list_with_raw(
+        &self,
+        web_url: impl IntoUrl,
+    ) -> Result<FetchTableListOutput> {
+        let (tables, raw_json) = fetch_table_list_full(&self.client, web_url).await?;
+        Ok(FetchTableListOutput { tables, raw_json })
+    }
+}
+
+/// Result of fetching a table with its raw JSON strings.
+pub struct FetchTableOutput {
+    /// Parsed table.
+    pub table: BmsTable,
+    /// Raw JSON strings and resolved URLs.
+    pub raw: BmsTableRaw,
+}
+
+/// Result of fetching a table list with its raw JSON string.
+pub struct FetchTableListOutput {
+    /// Parsed list entries.
+    pub tables: Vec<BmsTableInfo>,
+    /// Raw JSON string actually used for parsing.
+    pub raw_json: String,
+}
 
 /// Fetch and parse a complete BMS difficulty table from a web page or a header JSON source.
 ///

@@ -5,7 +5,7 @@ use anyhow::Result;
 use std::env;
 
 #[cfg(feature = "reqwest")]
-use bms_table::fetch::reqwest::{fetch_table, make_lenient_client};
+use bms_table::fetch::reqwest::Fetcher;
 #[cfg(feature = "reqwest")]
 use url::Url;
 
@@ -17,9 +17,9 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| "https://stellabms.xyz/sl/table.html".to_string());
     let url = Url::parse(&url)?;
 
-    let client = make_lenient_client()?;
+    let fetcher = Fetcher::lenient()?;
 
-    match fetch_table(&client, url.clone()).await {
+    match fetcher.fetch_table(url.clone()).await {
         Ok(table) => {
             println!(
                 "{} fetched successfully ({} charts, {} course groups, {} courses)",

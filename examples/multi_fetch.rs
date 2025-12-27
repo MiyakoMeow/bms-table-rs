@@ -14,7 +14,7 @@
 use anyhow::Result;
 use bms_table::BmsTable;
 #[cfg(feature = "reqwest")]
-use bms_table::fetch::reqwest::{fetch_table, make_lenient_client};
+use bms_table::fetch::reqwest::Fetcher;
 use std::env;
 #[cfg(feature = "reqwest")]
 use tokio::sync::mpsc;
@@ -44,8 +44,8 @@ async fn main() -> Result<()> {
     println!("Concurrent difficulty-table fetcher");
     println!("===================");
 
-    // Create a lenient HTTP client (reusable)
-    let client = make_lenient_client()?;
+    // Create a reusable fetcher
+    let fetcher = Fetcher::lenient()?;
 
     // Display fetching information
     let urls = table_urls();
@@ -81,9 +81,9 @@ async fn main() -> Result<()> {
         .into_iter()
         .map(|url| {
             let tx = tx.clone();
-            let client_cloned = client.clone();
+            let fetcher_cloned = fetcher.clone();
             tokio::spawn(async move {
-                let result = fetch_single_table(&client_cloned, &url).await;
+                let result = fetch_single_table(&fetcher_cloned, &url).await;
                 let _ = tx.send(result).await;
             })
         })
@@ -164,8 +164,8 @@ struct FetchResult {
 
 /// Fetch a single difficulty table
 #[cfg(feature = "reqwest")]
-async fn fetch_single_table(client: &reqwest::Client, url: &Url) -> FetchResult {
-    match fetch_table(client, url.clone()).await {
+async fn fetch_single_table(fetcher: &Fetcher, url: &Url) -> FetchResult {
+    match fetcher.fetch_table(url.clone()).await {
         Ok(bms_table) => FetchResult {
             name: bms_table.header.name.clone(),
             table: Ok(bms_table),
