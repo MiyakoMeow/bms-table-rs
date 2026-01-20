@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.12.1](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.12.0...v0.12.1) - 2026-01-20
+
+
+### Chore
+
+- update deps ([#49](https://github.com/MiyakoMeow/bms-table-rs/pull/49))
+
+
+### Features
+
+- switch to release-plz ([#50](https://github.com/MiyakoMeow/bms-table-rs/pull/50))
+
 
 ## [0.12.0](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.11.0...v0.12.0) (2025-12-27)
 
