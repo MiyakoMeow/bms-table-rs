@@ -230,7 +230,7 @@ pub struct BmsTableRaw {
 pub struct BmsTableInfo {
     /// Table name, e.g. ".WAS Difficulty Table"
     pub name: String,
-    /// Table symbol, e.g. "．" or "[F]"
+    /// Table symbol, e.g. "．" or "\[F\]"
     pub symbol: String,
     /// Table URL (as a full `url::Url` type)
     #[cfg(feature = "scraper")]
