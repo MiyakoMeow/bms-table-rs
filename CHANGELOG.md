@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.12.2](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.12.1...v0.12.2) - 2026-03-12
+
+
+### Bug Fixes
+
+- doc error ([#58](https://github.com/MiyakoMeow/bms-table-rs/pull/58))
+
+
+### Other
+
+- **(ci)** dependabot / rust ([#56](https://github.com/MiyakoMeow/bms-table-rs/pull/56))
+
 ## [0.12.1](https://github.com/MiyakoMeow/bms-table-rs/compare/v0.12.0...v0.12.1) - 2026-01-20
 
 
